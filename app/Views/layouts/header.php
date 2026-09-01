@@ -1,0 +1,66 @@
+<?php
+$authNav = new \App\Services\AuthService();
+$currentPath = trim(uri_string(), '/');
+$userName = (string) service('session')->get('user_name');
+$role = (string) service('session')->get('role');
+$appName = 'Inventory Manager';
+$initial = strtoupper(substr(trim($userName ?: 'U'), 0, 1));
+$active = function(array $paths) use ($currentPath): string {
+    foreach ($paths as $path) {
+        if ($path === '' && $currentPath === '') return 'active';
+        if ($path !== '' && ($currentPath === $path || str_starts_with($currentPath, trim($path, '/').'/'))) return 'active';
+    }
+    return '';
+};
+$canInventory = $authNav->can('inventory.view') || $authNav->can('inventory.in') || $authNav->can('inventory.out');
+$canProducts = $authNav->can('products.view') || $authNav->can('products.create');
+$canSecurity = $authNav->can('security.scan') || $authNav->can('security.manual_entry') || $authNav->can('security.history');
+$canReports = $authNav->can('reports.stock') || $authNav->can('reports.in') || $authNav->can('reports.out') || $authNav->can('reports.security') || $authNav->can('reports.compare');
+?>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title><?=esc($title ?? $appName)?> · <?=esc($appName)?></title>
+<link rel="stylesheet" href="<?=base_url('assets/css/app.css')?>">
+</head>
+<body>
+<div class="app-shell">
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-mark">IM</div>
+    <div><strong><?=esc($appName)?></strong><span>Stock & movement control</span></div>
+  </div>
+  <nav class="nav">
+    <a class="<?=$active(['dashboard'])?>" href="<?=site_url('dashboard')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>Dashboard</a>
+    <?php if($canInventory): ?>
+    <div class="nav-label">Inventory</div>
+    <?php if($authNav->can('inventory.view')): ?><a class="<?=$active(['inventory'])?>" href="<?=site_url('inventory')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M4 12h16M4 17h16"/><path d="M7 4v16"/></svg>Current Stock</a><?php endif; ?>
+    <?php if($authNav->can('inventory.in')): ?><a class="<?=$active(['inventory/in'])?>" href="<?=site_url('inventory/in')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 19V5M6 11l6-6 6 6"/></svg>Product IN</a><?php endif; ?>
+    <?php if($authNav->can('inventory.out')): ?><a class="<?=$active(['inventory/out'])?>" href="<?=site_url('inventory/out')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M6 13l6 6 6-6"/></svg>Product OUT</a><?php endif; ?>
+    <?php if($authNav->can('inventory.view')): ?><a class="<?=$active(['inventory/transactions'])?>" href="<?=site_url('inventory/transactions')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Transactions</a><?php endif; ?>
+    <?php endif; ?>
+    <?php if($canProducts): ?>
+    <div class="nav-label">Catalog</div>
+    <a class="<?=$active(['products'])?>" href="<?=site_url('products')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h6M8 16h5"/></svg>Products</a>
+    <?php endif; ?>
+    <?php if($canSecurity): ?>
+    <div class="nav-label">Gate desk</div>
+    <a class="<?=$active(['security'])?>" href="<?=site_url('security')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 11a7 7 0 0 1 14 0v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/><path d="M8 11V9a4 4 0 0 1 8 0v2"/></svg>Security Desk</a>
+    <?php endif; ?>
+    <?php if($canReports): ?>
+    <div class="nav-label">Insights</div>
+    <a class="<?=$active(['reports'])?>" href="<?=site_url('reports')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h16"/><path d="M8 16v-5M12 16V8M16 16v-3M20 16V6"/></svg>Reports</a>
+    <?php if($authNav->can('reports.compare')): ?><a class="<?=$active(['reports/compare'])?>" href="<?=site_url('reports/compare')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 18V6M12 18V3M19 18v-8"/><path d="M3 20h18"/></svg>Compare</a><?php endif; ?>
+    <?php endif; ?>
+    <?php if($authNav->can('users.view')): ?><a class="<?=$active(['users'])?>" href="<?=site_url('users')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 11a3 3 0 1 0 0-6M18 14a4 4 0 0 1 3 4"/></svg>Users & Access</a><?php endif; ?>
+    <?php if($authNav->can('audit.view')): ?><a class="<?=$active(['audit'])?>" href="<?=site_url('audit')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg>Audit Log</a><?php endif; ?>
+    <?php if($authNav->can('settings.view')): ?><a class="<?=$active(['settings'])?>" href="<?=site_url('settings')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/><path d="M4 12h2m12 0h2M12 4v2m0 12v2m-5.7-2.3 1.4-1.4m8.6 0 1.4 1.4M6.3 6.3l1.4 1.4m8.6 0 1.4-1.4"/></svg>Settings</a><?php endif; ?>
+  </nav>
+  <div class="sidebar-bottom"><div class="user-chip"><div class="avatar"><?=esc($initial)?></div><div style="min-width:0"><strong><?=esc($userName ?: 'User')?></strong><span><?=esc(ucfirst($role ?: 'member'))?></span><div><a href="<?=site_url('logout')?>">Sign out</a></div></div></div></div>
+</aside>
+<div class="main">
+<header class="topbar"><div class="crumb"><strong><?=esc($title ?? 'Dashboard')?></strong><span> · Inventory control</span></div><div class="top-actions"><button class="btn icon mobile-menu" type="button" data-menu aria-label="Open menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><div class="top-user"><div class="avatar"><?=esc($initial)?></div><div><strong style="font-size:12px;display:block"><?=esc($userName ?: 'User')?></strong><span class="muted" style="font-size:10px"><?=esc(ucfirst($role ?: 'member'))?></span></div></div></div></header>
+<main class="content">
+<?php if(session()->getFlashdata('success')): ?><div class="alert success" data-autohide><?=esc(session()->getFlashdata('success'))?></div><?php endif; ?>
+<?php if(session()->getFlashdata('error')): ?><div class="alert error"><?=esc(session()->getFlashdata('error'))?></div><?php endif; ?>
