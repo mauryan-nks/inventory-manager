@@ -1,1 +1,1 @@
-</main></div></div><script src="<?=base_url('assets/js/app.js')?>"></script></body></html>
+</main></div></div><script src="<?=base_url('assets/js/app.js?v='.rawurlencode((string)@filemtime(FCPATH.'assets/js/app.js')))?>"></script></body></html>
