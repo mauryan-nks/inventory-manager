@@ -50,6 +50,10 @@ class Security extends BaseController
     {
         return view('security/scan', [
             'title' => 'Scan Incoming Document',
+            'ocrReady' => $this->ocrExecutionReady(),
+            'ocrServerBinary' => $this->findBinary(['tesseract','/usr/bin/tesseract','/usr/local/bin/tesseract']) !== null,
+            'ocrLanguage' => app_locale() === 'hi' ? 'hin' : 'eng',
+            'pdfToolsReady' => $this->findBinary(['pdftoppm','/usr/bin/pdftoppm','/usr/local/bin/pdftoppm']) !== null,
         ]);
     }
 
@@ -76,13 +80,28 @@ class Security extends BaseController
         $stored = $file->getRandomName();
         $file->move($dir, $stored);
 
+        
+        // Prefer browser OCR text when available. This provides a reliable fallback on hosts
+        // where PHP-FPM cannot execute Tesseract, while the original file is still stored server-side.
+        $clientOcrText = trim((string) $this->request->getPost('client_ocr_text'));
+        $clientOcrLanguage = trim((string) $this->request->getPost('client_ocr_language'));
         $ocr = $this->runOcr($dir . DIRECTORY_SEPARATOR . $stored, $mime);
+        if ($clientOcrText !== '' && strlen($clientOcrText) >= 5 && $mime !== 'application/pdf') {
+            $ocr['status'] = 'completed';
+            $ocr['raw_text'] = $clientOcrText;
+            $ocr['diagnostic'] = 'OCR extracted in the browser' . ($clientOcrLanguage !== '' ? ' (' . $clientOcrLanguage . ')' : '') . '.';
+            $ocr['reference_no'] = $this->extract($clientOcrText, '/(?:invoice|bill|reference|ref(?:erence)?|inv\.?)[\s:#-]*([A-Z0-9][A-Z0-9\/.-]{2,})/i');
+            $ocr['vehicle_no'] = $this->extract($clientOcrText, '/(?:vehicle|truck|registration|reg\.?)[\s:#-]*([A-Z]{1,3}[ -]?[0-9]{1,4}[ -]?[A-Z]{0,3}[ -]?[0-9]{1,4})/i');
+            $ocr['party_name'] = $this->extract($clientOcrText, '/(?:supplier|sender|vendor|from|party details?)[\s:#-]*([^\r\n]+)/i');
+            $ocr['document_date'] = $this->extract($clientOcrText, '/\b(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}|\d{1,2}[- ](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[- ]\d{2,4})\b/i');
+        }
         $data = [
             'reference_no' => $ocr['reference_no'] ?? '',
             'party_name' => $ocr['party_name'] ?? '',
             'document_date' => $ocr['document_date'] ?? '',
             'vehicle_no' => $ocr['vehicle_no'] ?? '',
             'raw_text' => $ocr['raw_text'] ?? '',
+            'diagnostic' => $ocr['diagnostic'] ?? '',
         ];
 
         $id = $this->documents->insert([
@@ -139,11 +158,17 @@ class Security extends BaseController
         $quantities = $this->request->getPost('quantity') ?? [];
         $variantIds = $this->request->getPost('variant_id') ?? [];
         $items = [];
+        foreach ((array)$quantities as $q) {
+            $q = trim((string)$q);
+            if ($q === '' || !ctype_digit($q) || (int)$q < 1) {
+                return redirect()->back()->withInput()->with('error', 'Quantity must be a whole number greater than 0.');
+            }
+        }
         if (is_array($productIds) && is_array($quantities)) {
             foreach ($productIds as $i => $productId) {
                 $items[] = [
                     'product_id' => (int)$productId,
-                    'quantity' => (float)($quantities[$i] ?? 0),
+                    'quantity' => (int)($quantities[$i] ?? 0),
                     'variant_id' => (int)($variantIds[$i] ?? 0),
                 ];
             }
@@ -203,11 +228,17 @@ class Security extends BaseController
         $quantities = $this->request->getPost('quantity') ?? [];
         $variantIds = $this->request->getPost('variant_id') ?? [];
         $items = [];
+        foreach ((array)$quantities as $q) {
+            $q = trim((string)$q);
+            if ($q === '' || !ctype_digit($q) || (int)$q < 1) {
+                return redirect()->back()->withInput()->with('error', 'Quantity must be a whole number greater than 0.');
+            }
+        }
         if (is_array($productIds) && is_array($quantities)) {
             foreach ($productIds as $i => $productId) {
                 $items[] = [
                     'product_id' => (int)$productId,
-                    'quantity' => (float)($quantities[$i] ?? 0),
+                    'quantity' => (int)($quantities[$i] ?? 0),
                     'variant_id' => (int)($variantIds[$i] ?? 0),
                 ];
             }
@@ -267,47 +298,147 @@ class Security extends BaseController
     {
         $raw = '';
         $status = 'unavailable';
-        $binary = trim((string) shell_exec('command -v tesseract 2>/dev/null'));
+        $diagnostic = '';
+        $tesseract = $this->findBinary(['tesseract', '/usr/bin/tesseract', '/usr/local/bin/tesseract', '/opt/homebrew/bin/tesseract']);
+        $pdftotext = $this->findBinary(['pdftotext', '/usr/bin/pdftotext', '/usr/local/bin/pdftotext']);
+        $pdftoppm = $this->findBinary(['pdftoppm', '/usr/bin/pdftoppm', '/usr/local/bin/pdftoppm']);
 
-        if ($binary !== '') {
-            $input = $path;
-            $temporaryPng = null;
-            if ($mime === 'application/pdf') {
-                $pdftotext = trim((string) shell_exec('command -v pdftotext 2>/dev/null'));
-                if ($pdftotext !== '') {
-                    $tmpBase = tempnam(sys_get_temp_dir(), 'invocr_');
-                    $temporaryTxt = $tmpBase . '.txt';
-                    @shell_exec($pdftotext . ' -layout ' . escapeshellarg($path) . ' ' . escapeshellarg($temporaryTxt) . ' 2>/dev/null');
-                    if (is_file($temporaryTxt)) {
-                        $raw = (string) file_get_contents($temporaryTxt);
-                        @unlink($temporaryTxt);
-                    }
-                    @unlink($tmpBase);
-                }
-            } else {
-                $base = tempnam(sys_get_temp_dir(), 'invocr_');
-                @unlink($base);
-                $outBase = $base;
-                @shell_exec($binary . ' ' . escapeshellarg($input) . ' ' . escapeshellarg($outBase) . ' 2>/dev/null');
-                $txt = $outBase . '.txt';
-                if (is_file($txt)) {
-                    $raw = (string) file_get_contents($txt);
-                    @unlink($txt);
-                }
+        if ($mime === 'application/pdf' && $pdftotext) {
+            $txt = tempnam(sys_get_temp_dir(), 'invocr_txt_');
+            $this->runCommand($pdftotext, ['-layout', $path, $txt], $diagnostic);
+            if (is_file($txt)) {
+                $raw = trim((string) file_get_contents($txt));
+                @unlink($txt);
             }
-            if (trim($raw) !== '') {
-                $status = 'completed';
+        }
+
+        // Scanned/image-only PDFs need to be rendered first, then passed through Tesseract.
+        if ($mime === 'application/pdf' && trim($raw) === '' && $tesseract && $pdftoppm) {
+            $base = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'invocr_pdf_' . bin2hex(random_bytes(5));
+            $this->runCommand($pdftoppm, ['-png', '-r', '200', '-f', '1', '-l', '20', $path, $base], $diagnostic);
+            $pages = glob($base . '-*.png') ?: [];
+            natsort($pages);
+            foreach ($pages as $png) {
+                $pageText = $this->tesseractRead($tesseract, $png, $diagnostic);
+                if ($pageText !== '') $raw .= ($raw === '' ? '' : "\n\n") . $pageText;
+                @unlink($png);
             }
+        }
+
+        if ($mime !== 'application/pdf' && $tesseract) {
+            $raw = $this->tesseractRead($tesseract, $path, $diagnostic);
+        }
+
+        if (trim($raw) !== '') {
+            $status = 'completed';
+            $diagnostic = '';
+        } elseif (!$tesseract && $mime !== 'application/pdf') {
+            $diagnostic = 'Tesseract OCR is not installed or is not available to PHP. Install tesseract-ocr and restart/reload PHP-FPM.';
+        } elseif ($mime === 'application/pdf' && !$pdftotext && !$pdftoppm) {
+            $diagnostic = 'PDF tools are not available to PHP. Install poppler-utils (pdftotext + pdftoppm).';
+        } elseif ($mime === 'application/pdf' && !$tesseract && $pdftotext) {
+            $diagnostic = 'This PDF has no readable text layer. Install tesseract-ocr + poppler-utils to OCR scanned PDFs.';
+        } elseif ($diagnostic === '') {
+            $diagnostic = 'OCR ran but could not extract readable text. Try a clearer scan/photo.';
         }
 
         return [
             'status' => $status,
             'raw_text' => $raw,
+            'diagnostic' => $diagnostic,
             'reference_no' => $this->extract($raw, '/(?:invoice|bill|reference|ref(?:erence)?)[\s:#-]*([A-Z0-9][A-Z0-9\/-]{2,})/i'),
             'vehicle_no' => $this->extract($raw, '/(?:vehicle|truck|registration|reg\.?)[\s:#-]*([A-Z]{1,3}[ -]?[0-9]{1,4}[ -]?[A-Z]{0,3}[ -]?[0-9]{1,4})/i'),
             'party_name' => $this->extract($raw, '/(?:supplier|sender|vendor|from)[\s:#-]*([^\r\n]+)/i'),
             'document_date' => $this->extract($raw, '/\b(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})\b/'),
         ];
+    }
+
+    protected function ocrExecutionReady(): bool
+    {
+        $disabled = array_filter(array_map('trim', explode(',', (string) ini_get('disable_functions'))));
+        $runner = function_exists('proc_open') && !in_array('proc_open', $disabled, true)
+            || function_exists('exec') && !in_array('exec', $disabled, true)
+            || function_exists('shell_exec') && !in_array('shell_exec', $disabled, true)
+            || function_exists('popen') && !in_array('popen', $disabled, true);
+        return $runner && $this->findBinary(['tesseract','/usr/bin/tesseract','/usr/local/bin/tesseract']) !== null;
+    }
+
+    protected function findBinary(array $candidates): ?string
+    {
+        $disabled = array_filter(array_map('trim', explode(',', (string) ini_get('disable_functions'))));
+        $canShell = function_exists('shell_exec') && !in_array('shell_exec', $disabled, true);
+        if ($canShell) {
+            foreach ($candidates as $candidate) {
+                if (str_contains($candidate, DIRECTORY_SEPARATOR) && is_executable($candidate)) return $candidate;
+                $found = trim((string) @shell_exec('command -v ' . escapeshellarg($candidate) . ' 2>/dev/null'));
+                if ($found !== '' && is_executable($found)) return $found;
+            }
+        }
+        foreach ($candidates as $candidate) {
+            if (str_contains($candidate, DIRECTORY_SEPARATOR) && is_executable($candidate)) return $candidate;
+        }
+        return null;
+    }
+
+    protected function runCommand(string $binary, array $args, ?string &$diagnostic = null): string
+    {
+        $cmd = escapeshellarg($binary);
+        foreach ($args as $arg) $cmd .= ' ' . escapeshellarg((string) $arg);
+        $disabled = array_filter(array_map('trim', explode(',', (string) ini_get('disable_functions'))));
+
+        if (function_exists('proc_open') && !in_array('proc_open', $disabled, true)) {
+            $pipes = [];
+            $process = @proc_open($cmd . ' 2>&1', [1 => ['pipe','w'], 2 => ['pipe','w']], $pipes);
+            if (is_resource($process)) {
+                $stdout = stream_get_contents($pipes[1]);
+                $stderr = stream_get_contents($pipes[2]);
+                fclose($pipes[1]); fclose($pipes[2]);
+                $code = proc_close($process);
+                if ($code !== 0 && trim((string)$stderr) !== '') $diagnostic = trim((string)$stderr);
+                return trim((string)$stdout);
+            }
+        }
+        if (function_exists('exec') && !in_array('exec', $disabled, true)) {
+            $lines = [];
+            $code = 0;
+            @exec($cmd . ' 2>&1', $lines, $code);
+            $output = trim(implode("\n", $lines));
+            if ($code !== 0 && $output !== '') $diagnostic = $output;
+            return $output;
+        }
+        if (function_exists('shell_exec') && !in_array('shell_exec', $disabled, true)) {
+            return trim((string) @shell_exec($cmd . ' 2>&1'));
+        }
+        if (function_exists('popen') && !in_array('popen', $disabled, true)) {
+            $handle = @popen($cmd . ' 2>&1', 'r');
+            if (is_resource($handle)) {
+                $output = stream_get_contents($handle);
+                pclose($handle);
+                return trim((string)$output);
+            }
+        }
+        $diagnostic = 'PHP-FPM has disabled all supported process functions (proc_open, exec, shell_exec, popen). Browser OCR will be used for image uploads.';
+        return '';
+    }
+
+    protected function tesseractRead(string $binary, string $input, ?string &$diagnostic = null): string
+    {
+        $langs = trim($this->runCommand($binary, ['--list-langs'], $diagnostic));
+        $locale = app_locale();
+        $language = $locale === 'hi' ? 'hin' : 'eng';
+        if ($locale === 'hinglish') $language = 'eng';
+        if ($locale === 'hi' && !preg_match('/(?:^|\n)hin(?:\s|$)/i', $langs)) {
+            $language = 'eng';
+            $diagnostic = 'Hindi OCR language pack (hin) is not installed. Browser OCR will use English until it is installed.';
+        }
+        $outDir = WRITEPATH . 'uploads/ocr_tmp';
+        if (!is_dir($outDir)) @mkdir($outDir, 0750, true);
+        $outBase = $outDir . DIRECTORY_SEPARATOR . 'ocr_' . bin2hex(random_bytes(7));
+        $this->runCommand($binary, [$input, $outBase, '-l', $language, '--psm', '6'], $diagnostic);
+        $txt = $outBase . '.txt';
+        $raw = is_file($txt) ? (string) file_get_contents($txt) : '';
+        if (is_file($txt)) @unlink($txt);
+        return trim($raw);
     }
 
     protected function extract(string $text, string $pattern): string

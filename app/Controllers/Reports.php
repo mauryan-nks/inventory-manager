@@ -53,7 +53,7 @@ class Reports extends BaseController
         if ($product !== '') $builder->groupStart()->like('p.code',$product)->orLike('p.name',$product)->groupEnd();
 
         return view('reports/movements', [
-            'title' => $type . ' Report', 'type' => $type, 'rows' => $builder->findAll(),
+            'title' => $type . ' Report', 'type' => $type, 'rows' => $builder->get()->getResultArray(),
             'from' => $from, 'to' => $to, 'product' => $product, 'party_name' => $supplier,
         ]);
     }
@@ -84,14 +84,14 @@ class Reports extends BaseController
         $productRows = $movement->get()->getResultArray();
 
         $variantBuilder = $db->table('inventory_transaction_items i')
-            ->select("p.id AS product_id, p.code, p.name, p.unit, v.id AS variant_id, v.variant_name, v.size_value, v.size_unit,
+            ->select("p.id AS product_id, p.code, p.name, p.unit, v.id AS variant_id, v.variant_name, v.attributes_json, v.size_value, v.size_unit,
                 SUM(CASE WHEN t.type='IN' AND t.status='CONFIRMED' THEN i.quantity ELSE 0 END) AS total_in,
                 SUM(CASE WHEN t.type='OUT' AND t.status='CONFIRMED' THEN i.quantity ELSE 0 END) AS total_out,
                 SUM(CASE WHEN t.type='IN' AND t.status='CONFIRMED' THEN i.quantity WHEN t.type='OUT' AND t.status='CONFIRMED' THEN -i.quantity ELSE 0 END) AS net")
             ->join('inventory_transactions t','t.id=i.transaction_id','inner')
             ->join('products p','p.id=i.product_id','inner')
             ->join('product_variants v','v.id=i.variant_id','left')
-            ->groupBy('p.id,p.code,p.name,p.unit,v.id,v.variant_name,v.size_value,v.size_unit')
+            ->groupBy('p.id,p.code,p.name,p.unit,v.id,v.variant_name,v.attributes_json,v.size_value,v.size_unit')
             ->orderBy('p.name','ASC')->orderBy('v.size_value','ASC');
         if ($from !== '') $variantBuilder->where('t.created_at >=', $from.' 00:00:00');
         if ($to !== '') $variantBuilder->where('t.created_at <=', $to.' 23:59:59');
@@ -148,7 +148,7 @@ class Reports extends BaseController
             ->select('d.*, u.name AS guard_name, t.transaction_no, t.reference_no, t.party_name')
             ->join('users u','u.id=d.uploaded_by','left')
             ->join('inventory_transactions t','t.id=d.transaction_id','left')
-            ->orderBy('d.id','DESC')->findAll();
+            ->orderBy('d.id','DESC')->get()->getResultArray();
         return view('reports/security', ['title' => 'Security Report', 'rows' => $rows]);
     }
 
@@ -168,11 +168,11 @@ class Reports extends BaseController
             $header = ['Code','Product','Unit','Opening','Minimum','Current'];
             $data = array_map(fn($r) => [$r['code'],$r['name'],$r['unit'],$r['opening_stock'],$r['minimum_stock'],$r['current_stock']], $rows);
         } elseif (in_array($type, ['IN','OUT'], true)) {
-            $rows = db_connect()->table('inventory_transactions t')->select("t.transaction_no,t.created_at,t.reference_no,t.party_name,t.vehicle_no,t.status,u.name AS user_name,GROUP_CONCAT(CONCAT(p.code,' · ',COALESCE(v.variant_name,''),' × ',i.quantity,' ',p.unit) SEPARATOR ', ') AS items")->join('users u','u.id=t.created_by','left')->join('inventory_transaction_items i','i.transaction_id=t.id','left')->join('products p','p.id=i.product_id','left')->join('product_variants v','v.id=i.variant_id','left')->where('t.type',$type)->groupBy('t.id')->orderBy('t.id','DESC')->findAll();
+            $rows = db_connect()->table('inventory_transactions t')->select("t.transaction_no,t.created_at,t.reference_no,t.party_name,t.vehicle_no,t.status,u.name AS user_name,GROUP_CONCAT(CONCAT(p.code,' · ',COALESCE(v.variant_name,''),' × ',i.quantity,' ',p.unit) SEPARATOR ', ') AS items")->join('users u','u.id=t.created_by','left')->join('inventory_transaction_items i','i.transaction_id=t.id','left')->join('products p','p.id=i.product_id','left')->join('product_variants v','v.id=i.variant_id','left')->where('t.type',$type)->groupBy('t.id')->orderBy('t.id','DESC')->get()->getResultArray();
             $header = ['Transaction','Date/Time','Reference','Party','Vehicle','Status','User','Items'];
             $data = array_map(fn($r) => [$r['transaction_no'],$r['created_at'],$r['reference_no'],$r['party_name'],$r['vehicle_no'],$r['status'],$r['user_name'],$r['items']], $rows);
         } else {
-            $rows = db_connect()->table('incoming_documents d')->select('d.created_at,d.original_filename,d.ocr_status,d.verified,u.name AS guard_name,t.transaction_no,t.reference_no,t.party_name')->join('users u','u.id=d.uploaded_by','left')->join('inventory_transactions t','t.id=d.transaction_id','left')->orderBy('d.id','DESC')->findAll();
+            $rows = db_connect()->table('incoming_documents d')->select('d.created_at,d.original_filename,d.ocr_status,d.verified,u.name AS guard_name,t.transaction_no,t.reference_no,t.party_name')->join('users u','u.id=d.uploaded_by','left')->join('inventory_transactions t','t.id=d.transaction_id','left')->orderBy('d.id','DESC')->get()->getResultArray();
             $header = ['Date/Time','Document','OCR','Verified','Guard','Transaction','Reference','Supplier'];
             $data = array_map(fn($r) => [$r['created_at'],$r['original_filename'],$r['ocr_status'],$r['verified']?'Yes':'No',$r['guard_name'],$r['transaction_no'],$r['reference_no'],$r['party_name']], $rows);
         }

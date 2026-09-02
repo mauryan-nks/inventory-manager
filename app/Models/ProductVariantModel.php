@@ -10,7 +10,7 @@ class ProductVariantModel extends Model
     protected $primaryKey = 'id';
     protected $returnType = 'array';
     protected $allowedFields = [
-        'product_id', 'variant_name', 'size_value', 'size_unit', 'size_inches',
+        'product_id', 'variant_name', 'attributes_json', 'size_value', 'size_unit', 'size_inches',
         'opening_quantity', 'minimum_quantity', 'status', 'created_at', 'updated_at',
     ];
     protected $useTimestamps = false;

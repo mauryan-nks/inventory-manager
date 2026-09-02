@@ -100,7 +100,7 @@ class InventoryService
             LEFT JOIN inventory_transaction_items i ON i.variant_id=v.id
             LEFT JOIN inventory_transactions t ON t.id=i.transaction_id
             WHERE v.product_id=?
-            GROUP BY v.id,v.product_id,v.variant_name,v.size_value,v.size_unit,v.size_inches,v.opening_quantity,v.minimum_quantity,v.status,v.created_at,v.updated_at
+            GROUP BY v.id,v.product_id,v.variant_name,v.attributes_json,v.size_value,v.size_unit,v.size_inches,v.opening_quantity,v.minimum_quantity,v.status,v.created_at,v.updated_at
             ORDER BY (v.size_inches IS NULL), v.size_inches, v.variant_name", [$productId])->getResultArray();
         return $rows;
     }
@@ -126,7 +126,10 @@ class InventoryService
             foreach ($items as $item) {
                 $productId = (int)($item['product_id'] ?? 0);
                 $variantId = (int)($item['variant_id'] ?? 0);
-                $quantity = (float)($item['quantity'] ?? 0);
+                $rawQuantity = $item['quantity'] ?? 0;
+                if (is_string($rawQuantity)) $rawQuantity = trim($rawQuantity);
+                if (!is_numeric($rawQuantity) || (float)$rawQuantity != (int)$rawQuantity) throw new RuntimeException('Quantity must be a whole number.');
+                $quantity = (int)$rawQuantity;
                 if ($productId <= 0 || $variantId <= 0 || $quantity <= 0) throw new RuntimeException('Every line needs a product, variant and positive quantity.');
 
                 $product = $this->db->query('SELECT * FROM products WHERE id=? FOR UPDATE', [$productId])->getRowArray();
@@ -139,6 +142,7 @@ class InventoryService
                     'quantity'=>$quantity,
                     'entered_quantity'=>$quantity,
                     'entered_unit'=>(string)($product['unit'] ?? 'UNIT'),
+                    'attributes_json'=>$variant['attributes_json'],
                     'size_value'=>$variant['size_value'],
                     'size_unit'=>$variant['size_unit'],
                     'size_inches'=>$variant['size_inches'],
@@ -172,7 +176,7 @@ class InventoryService
                 $this->items->insert([
                     'transaction_id'=>$transactionId,'product_id'=>$item['product_id'],'variant_id'=>$item['variant_id'],
                     'quantity'=>$item['quantity'],'entered_quantity'=>$item['entered_quantity'],'entered_unit'=>$item['entered_unit'],
-                    'quantity_inches'=>null,'size_value'=>$item['size_value'],'size_unit'=>$item['size_unit'],'size_inches'=>$item['size_inches'],
+                    'quantity_inches'=>null,'variant_attributes_json'=>$item['attributes_json'],'size_value'=>$item['size_value'],'size_unit'=>$item['size_unit'],'size_inches'=>$item['size_inches'],
                     'created_at'=>date('Y-m-d H:i:s'),
                 ]);
             }

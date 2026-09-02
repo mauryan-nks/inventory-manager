@@ -19,6 +19,7 @@ class ProductModel extends Model
         'minimum_stock',
         'opening_stock',
         'description',
+        'variant_schema_json',
         'status',
         'created_at',
         'updated_at',

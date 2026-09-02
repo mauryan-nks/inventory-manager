@@ -59,14 +59,14 @@ class ContentSecurityPolicy extends BaseConfig
      *
      * @var list<string>|string
      */
-    public $scriptSrc = 'self';
+    public $scriptSrc = ['self', 'https://cdn.jsdelivr.net'];
 
     /**
      * Specifies valid sources for JavaScript <script> elements.
      *
      * @var list<string>|string
      */
-    public array|string $scriptSrcElem = 'self';
+    public array|string $scriptSrcElem = ['self', 'https://cdn.jsdelivr.net'];
 
     /**
      * Specifies valid sources for JavaScript inline event
@@ -103,7 +103,7 @@ class ContentSecurityPolicy extends BaseConfig
      *
      * @var list<string>|string
      */
-    public $imageSrc = 'self';
+    public $imageSrc = ['self', 'data:', 'blob:'];
 
     /**
      * Restricts the URLs that can appear in a page's `<base>` element.
@@ -127,7 +127,7 @@ class ContentSecurityPolicy extends BaseConfig
      *
      * @var list<string>|string
      */
-    public $connectSrc = 'self';
+    public $connectSrc = ['self', 'https://cdn.jsdelivr.net', 'https://tessdata.projectnaptha.com'];
 
     /**
      * Specifies the origins that can serve web fonts.
@@ -183,7 +183,7 @@ class ContentSecurityPolicy extends BaseConfig
     /**
      * @var list<string>|string
      */
-    public array|string $workerSrc = [];
+    public array|string $workerSrc = ['self', 'blob:', 'https://cdn.jsdelivr.net'];
 
     /**
      * Limits the kinds of plugins a page may invoke.

@@ -14,6 +14,7 @@ class InventoryTransactionItemModel extends Model
         'transaction_id',
         'product_id',
         'variant_id',
+        'variant_attributes_json',
         'quantity',
         'size_value',
         'size_unit',

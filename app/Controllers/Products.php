@@ -8,6 +8,7 @@ use App\Models\ProductVariantModel;
 use App\Services\InventoryService;
 use App\Services\AuditService;
 use App\Services\AuthService;
+
 class Products extends BaseController
 {
     protected ProductModel $products;
@@ -78,7 +79,7 @@ class Products extends BaseController
             'code' => 'required|max_length[100]|is_unique[products.code]',
             'name' => 'required|max_length[200]',
             'unit' => 'required|max_length[50]',
-            'minimum_stock' => 'permit_empty|decimal|greater_than_equal_to[0]',
+            'minimum_stock' => 'permit_empty|integer|greater_than_equal_to[0]',
             'measurement_type' => 'required|in_list[STANDARD,LENGTH]',
             'category_id' => 'permit_empty|is_natural',
         ];
@@ -101,6 +102,7 @@ class Products extends BaseController
             'minimum_stock'=>$minimumTotal,
             'opening_stock'=>$openingTotal,
             'description'=>$this->request->getPost('description') ?: null,
+            'variant_schema_json'=>$this->variantSchemaPayload(),
             'status'=>1,'created_at'=>date('Y-m-d H:i:s'),'updated_at'=>date('Y-m-d H:i:s'),
         ]);
         $newId=(int)$this->products->getInsertID();
@@ -155,7 +157,7 @@ class Products extends BaseController
                 'measurement_type'=>$measurementType,'stock_unit'=>'UNIT',
                 'minimum_stock'=>array_sum(array_column($variants,'minimum_quantity')),
                 'opening_stock'=>$hasMovements ? (float)$product['opening_stock'] : array_sum(array_column($variants,'opening_quantity')),
-                'description'=>trim((string)$this->request->getPost('description'))?:null,'updated_at'=>date('Y-m-d H:i:s')
+                'description'=>trim((string)$this->request->getPost('description'))?:null,'variant_schema_json'=>$this->variantSchemaPayload(),'updated_at'=>date('Y-m-d H:i:s')
             ]);
             $existing=$this->variants->where('product_id',$id)->findAll();
             foreach($existing as $v) {
@@ -188,32 +190,76 @@ class Products extends BaseController
 
     protected function validateVariants(string $measurementType): void
     {
-        $names=$this->request->getPost('variant_name') ?? [];
-        $sizes=$this->request->getPost('variant_size_value') ?? [];
-        $units=$this->request->getPost('variant_size_unit') ?? [];
-        $opens=$this->request->getPost('variant_opening') ?? [];
-        if(!is_array($names)||!is_array($opens)) throw new \RuntimeException('Invalid variant data.');
-        foreach($names as $i=>$name) {
-            if(trim((string)$name)==='' ) throw new \RuntimeException('Every variant needs a name.');
-            if((float)($opens[$i]??0)<0) throw new \RuntimeException('Opening quantity cannot be negative.');
-            if($measurementType==='LENGTH') {
-                $sv=($sizes[$i]??'')===''?null:(float)$sizes[$i]; $su=strtoupper((string)($units[$i]??''));
-                if(($sv===null || $sv<=0 || !in_array($su,['MM','IN'],true)) && trim((string)$name) !== 'Unspecified size') throw new \RuntimeException('Every length variant needs a valid size in MM or Inches.');
-            }
+        $names = $this->request->getPost('variant_name') ?? [];
+        $opens = $this->request->getPost('variant_opening') ?? [];
+        $attrs = $this->request->getPost('variant_attributes') ?? [];
+        if (!is_array($names) || !is_array($opens) || !is_array($attrs)) {
+            throw new \RuntimeException('Invalid variant data.');
+        }
+        foreach ($names as $i => $name) {
+            if (trim((string)$name) === '') throw new \RuntimeException('Every variant needs a name.');
+            if ((int)($opens[$i] ?? 0) < 0) throw new \RuntimeException('Opening quantity cannot be negative.');
+            $raw = trim((string)($attrs[$i] ?? '{}'));
+            $decoded = json_decode($raw === '' ? '{}' : $raw, true);
+            if (!is_array($decoded)) throw new \RuntimeException('Variant attributes must contain valid JSON.');
         }
     }
 
     protected function variantPayload(string $measurementType): array
     {
-        $ids=$this->request->getPost('variant_id')??[];$names=$this->request->getPost('variant_name')??[];$sizes=$this->request->getPost('variant_size_value')??[];$units=$this->request->getPost('variant_size_unit')??[];$opens=$this->request->getPost('variant_opening')??[];$mins=$this->request->getPost('variant_minimum')??[];
-        if(!is_array($names)) return [];
-        $out=[];
-        foreach($names as $i=>$name){
-            $sizeValue=($sizes[$i]??'')===''?null:(float)$sizes[$i]; $sizeUnit=$sizeValue===null?null:strtoupper((string)($units[$i]??''));
-            $sizeInches=$sizeValue===null?null:($sizeUnit==='MM'?$sizeValue/25.4:$sizeValue);
-            $out[]=['_id'=>(int)($ids[$i]??0),'variant_name'=>trim((string)$name),'size_value'=>$sizeValue,'size_unit'=>$sizeUnit,'size_inches'=>$sizeInches,'opening_quantity'=>(float)($opens[$i]??0),'minimum_quantity'=>(float)($mins[$i]??0),'status'=>1,'created_at'=>date('Y-m-d H:i:s')];
+        $ids = $this->request->getPost('variant_id') ?? [];
+        $names = $this->request->getPost('variant_name') ?? [];
+        $attrs = $this->request->getPost('variant_attributes') ?? [];
+        $opens = $this->request->getPost('variant_opening') ?? [];
+        $mins = $this->request->getPost('variant_minimum') ?? [];
+        if (!is_array($names)) return [];
+        $out = [];
+        foreach ($names as $i => $name) {
+            $name = trim((string)$name);
+            if ($name === '') continue;
+            $raw = trim((string)($attrs[$i] ?? '{}'));
+            $decoded = json_decode($raw === '' ? '{}' : $raw, true);
+            if (!is_array($decoded)) $decoded = [];
+
+            // Backward compatibility: if an old form only supplied size fields, preserve them in JSON.
+            $legacySize = $this->request->getPost('variant_size_value') ?? [];
+            $legacyUnit = $this->request->getPost('variant_size_unit') ?? [];
+            if (!$decoded && isset($legacySize[$i]) && $legacySize[$i] !== '') {
+                $sv = (float)$legacySize[$i];
+                $su = strtoupper((string)($legacyUnit[$i] ?? 'MM'));
+                $decoded['size'] = ['value' => $sv, 'unit' => in_array($su, ['MM','IN'], true) ? $su : 'MM'];
+            }
+            $sizeValue = null; $sizeUnit = null; $sizeInches = null;
+            if (isset($decoded['size']) && is_array($decoded['size']) && isset($decoded['size']['value'])) {
+                $sizeValue = (float)$decoded['size']['value'];
+                $sizeUnit = strtoupper((string)($decoded['size']['unit'] ?? 'MM'));
+                if (in_array($sizeUnit, ['MM','IN'], true) && $sizeValue > 0) {
+                    $sizeInches = $sizeUnit === 'MM' ? $sizeValue / 25.4 : $sizeValue;
+                }
+            }
+            $out[] = [
+                '_id' => (int)($ids[$i] ?? 0),
+                'variant_name' => $name,
+                'attributes_json' => json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'size_value' => $sizeValue,
+                'size_unit' => $sizeUnit,
+                'size_inches' => $sizeInches,
+                'opening_quantity' => (int)($opens[$i] ?? 0),
+                'minimum_quantity' => (int)($mins[$i] ?? 0),
+                'status' => 1,
+                'created_at' => date('Y-m-d H:i:s'),
+            ];
         }
-        return array_values(array_filter($out,fn($v)=>$v['variant_name']!==''));
+        return $out;
+    }
+
+    protected function variantSchemaPayload(): ?string
+    {
+        $raw = trim((string)$this->request->getPost('variant_schema_json'));
+        if ($raw === '') return null;
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) return null;
+        return json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     protected function dbCheckMovement(int $productId): bool

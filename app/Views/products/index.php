@@ -54,7 +54,7 @@ $inactiveCount = (int)($inactiveCount ?? 0);
             <div class="variant-list">
               <?php foreach($variantsFor as $v): ?>
                 <span class="variant-chip <?=((int)($v['status']??1)===1?'':'archived')?>">
-                  <span><?=esc($v['variant_name'])?></span><b><?=esc(inventory_quantity_label((float)$v['current_stock'], (string)$p['unit']))?></b>
+                  <span><?=esc(inventory_variant_attributes_label($v['attributes_json'] ?? null, (string)$v['variant_name']))?></span><b><?=esc(inventory_quantity_label((float)$v['current_stock'], (string)$p['unit']))?></b>
                 </span>
               <?php endforeach; ?>
             </div>

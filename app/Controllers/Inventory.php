@@ -7,6 +7,7 @@ use App\Models\ProductModel;
 use App\Services\InventoryService;
 use RuntimeException;
 use App\Services\AuthService;
+use App\Models\SettingModel;
 
 class Inventory extends BaseController
 {
@@ -79,11 +80,17 @@ class Inventory extends BaseController
         $variantIds = $this->request->getPost('variant_id') ?? [];
 
         $items = [];
+        foreach ((array)$quantities as $q) {
+            $q = trim((string)$q);
+            if ($q === '' || !ctype_digit($q) || (int)$q < 1) {
+                return redirect()->back()->withInput()->with('error', 'Quantity must be a whole number greater than 0.');
+            }
+        }
         if (is_array($productIds) && is_array($quantities)) {
             foreach ($productIds as $index => $productId) {
                 $items[] = [
                     'product_id' => (int)$productId,
-                    'quantity' => (float)($quantities[$index] ?? 0),
+                    'quantity' => (int)($quantities[$index] ?? 0),
                     'variant_id' => (int)($variantIds[$index] ?? 0),
                 ];
             }
@@ -102,10 +109,10 @@ class Inventory extends BaseController
                 ]
             );
 
-            return redirect()->to('/inventory')->with(
-                'success',
-                'Inventory ' . $type . ' transaction created successfully. ID: ' . $id
-            );
+            if ($type === 'OUT') {
+                return redirect()->to('/inventory/transactions/'.$id)->with('success', 'Inventory OUT created successfully. You can now print the Original + Customer Copy challan.');
+            }
+            return redirect()->to('/inventory')->with('success', 'Inventory IN transaction created successfully. ID: ' . $id);
         } catch (RuntimeException $e) {
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
@@ -116,7 +123,7 @@ class Inventory extends BaseController
         $transaction = (new InventoryTransactionModel())->select('inventory_transactions.*, users.name AS user_name')->join('users','users.id=inventory_transactions.created_by','left')->find($id);
         if (!$transaction) return redirect()->to('/inventory/transactions')->with('error','Transaction not found.');
         $items = (new \App\Models\InventoryTransactionItemModel())->select('inventory_transaction_items.*, products.code, products.name, products.unit, product_variants.variant_name, product_variants.size_value, product_variants.size_unit')->join('products','products.id=inventory_transaction_items.product_id','left')->join('product_variants','product_variants.id=inventory_transaction_items.variant_id','left')->where('transaction_id',$id)->findAll();
-        return view('inventory/detail',['title'=>'Transaction '.$transaction['transaction_no'],'transaction'=>$transaction,'items'=>$items]);
+        return view('inventory/detail',['title'=>'Transaction '.$transaction['transaction_no'],'transaction'=>$transaction,'items'=>$items,'authNav'=>new AuthService()]);
     }
 
     protected function productMap(): array
@@ -137,6 +144,16 @@ class Inventory extends BaseController
             $map[(int)$row['id']] = (float)$row['current_stock'];
         }
         return $map;
+    }
+
+
+    public function challan(int $id)
+    {
+        $transaction = (new InventoryTransactionModel())->select('inventory_transactions.*, users.name AS user_name')->join('users','users.id=inventory_transactions.created_by','left')->where('inventory_transactions.id',$id)->where('inventory_transactions.type','OUT')->first();
+        if (!$transaction) return redirect()->to('/inventory/transactions')->with('error','OUT transaction not found.');
+        $items = (new \App\Models\InventoryTransactionItemModel())->select('inventory_transaction_items.*, products.code, products.name, products.unit, product_variants.variant_name, product_variants.attributes_json, product_variants.size_value, product_variants.size_unit')->join('products','products.id=inventory_transaction_items.product_id','left')->join('product_variants','product_variants.id=inventory_transaction_items.variant_id','left')->where('transaction_id',$id)->findAll();
+        $settings = array_column((new SettingModel())->findAll(), 'setting_value', 'setting_key');
+        return view('inventory/challan', ['transaction'=>$transaction,'items'=>$items,'company'=>$settings]);
     }
 
     public function transactions()

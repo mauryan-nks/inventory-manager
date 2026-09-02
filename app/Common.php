@@ -18,7 +18,7 @@
 if (!function_exists('inventory_quantity_label')) {
     function inventory_quantity_label(float $quantity, string $unit = ''): string
     {
-        $text = rtrim(rtrim(number_format($quantity, 3, '.', ''), '0'), '.');
+        $text = number_format(max(0, (int)round($quantity)), 0, '.', '');
         return $text . ($unit !== '' ? ' ' . $unit : '');
     }
 }
@@ -45,5 +45,39 @@ if (!function_exists('inventory_size_label')) {
             ? rtrim(rtrim(number_format($inches, 3, '.', ''), '0'), '.') . ' in'
             : rtrim(rtrim(number_format($mm, 2, '.', ''), '0'), '.') . ' mm';
         return $left . ' · ' . $right;
+    }
+}
+
+if (!function_exists('inventory_variant_attributes')) {
+    function inventory_variant_attributes($json): array
+    {
+        if (is_array($json)) return $json;
+        if (!is_string($json) || trim($json) === '') return [];
+        $decoded = json_decode($json, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+}
+
+if (!function_exists('inventory_variant_attributes_label')) {
+    function inventory_variant_attributes_label($json, string $fallback = 'Default'): string
+    {
+        $attrs = inventory_variant_attributes($json);
+        if (!$attrs) return $fallback;
+        $parts = [];
+        foreach ($attrs as $key => $value) {
+            $label = ucwords(str_replace(['_', '-'], ' ', (string)$key));
+            if (is_array($value)) {
+                if (array_key_exists('value', $value)) {
+                    $v = $value['value'];
+                    if (is_numeric($v)) $v = rtrim(rtrim(number_format((float)$v, 3, '.', ''), '0'), '.');
+                    $parts[] = $label . ': ' . $v . (!empty($value['unit']) ? ' ' . $value['unit'] : '');
+                } else {
+                    $parts[] = $label . ': ' . json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                }
+            } else {
+                $parts[] = $label . ': ' . (string)$value;
+            }
+        }
+        return implode(' · ', $parts);
     }
 }

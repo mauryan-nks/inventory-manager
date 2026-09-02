@@ -9,6 +9,8 @@ $routes->get('login', 'Auth::login');
 $routes->post('login', 'Auth::authenticate');
 $routes->get('logout', 'Auth::logout');
 
+$routes->post('language/(:segment)', 'Language::set/$1', ['filter' => 'auth']);
+
 $routes->get('dashboard', 'Dashboard::index', ['filter' => 'auth']);
 
 $routes->get('users', 'Users::index', ['filter' => 'auth:users.view']);
@@ -35,6 +37,7 @@ $routes->get('inventory/out', 'Inventory::out', ['filter' => 'auth:inventory.out
 $routes->post('inventory/store', 'Inventory::store', ['filter' => 'auth']);
 $routes->get('inventory/transactions', 'Inventory::transactions', ['filter' => 'auth:inventory.view']);
 $routes->get('inventory/transactions/(:num)', 'Inventory::detail/$1', ['filter' => 'auth:inventory.view']);
+$routes->get('inventory/transactions/(:num)/challan', 'Inventory::challan/$1', ['filter' => 'auth:inventory.view']);
 
 
 $routes->get('security', 'Security::index', ['filter' => 'auth']);
