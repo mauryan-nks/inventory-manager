@@ -4,9 +4,13 @@ namespace App\Controllers;
 
 class Language extends BaseController
 {
-    public function set()
+    public function set(?string $language = null)
     {
-        $language = (string) $this->request->getPost('_language');
+        // GET is used by the language selector so it cannot accidentally submit
+        // to /en, /hi, or /hinglish. POST remains supported for compatibility.
+        $language = $language !== null
+            ? $language
+            : (string) $this->request->getPost('_language');
         $allowed = ['en', 'hi', 'hinglish'];
 
         if (!in_array($language, $allowed, true)) {
@@ -15,7 +19,10 @@ class Language extends BaseController
 
         session()->set('locale', $language);
 
-        $redirect = (string) $this->request->getPost('redirect');
+        $redirect = (string) ($this->request->getGet('redirect') ?: $this->request->getPost('redirect'));
+        if ($redirect === '') {
+            $redirect = '/dashboard';
+        }
         if ($redirect !== '' && str_starts_with($redirect, '/') && !str_starts_with($redirect, '//')) {
             return redirect()->to(site_url(ltrim($redirect, '/')));
         }

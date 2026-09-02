@@ -26,6 +26,19 @@
     if(window.innerWidth>820) closeMenu();
   });
   document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeMenu(); });
+
+  // Language selector: navigate to a dedicated language URL. This avoids the
+  // previous POST-to-/hinglish or POST-to-/hi routing bug entirely.
+  document.querySelectorAll('[data-language-select]').forEach(select => {
+    select.addEventListener('change', () => {
+      const base = select.getAttribute('data-language-url');
+      const redirect = select.getAttribute('data-language-redirect') || '/dashboard';
+      const lang = select.value;
+      if (!base || !['en','hi','hinglish'].includes(lang)) return;
+      window.location.assign(base.replace(/\/$/, '') + '/' + encodeURIComponent(lang) + '?redirect=' + encodeURIComponent(redirect));
+    });
+  });
+
   document.querySelectorAll('[data-confirm]').forEach(el=>el.addEventListener('click',e=>{
     const message=el.getAttribute('data-confirm')||'Are you sure?';
     if(!window.confirm(message)) e.preventDefault();

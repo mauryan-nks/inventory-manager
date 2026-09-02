@@ -69,10 +69,9 @@ $canReports = $authNav->can('reports.stock') || $authNav->can('reports.in') || $
 </aside>
 <div class="sidebar-overlay" data-menu-close aria-hidden="true"></div>
 <div class="main">
-<header class="topbar"><div class="crumb"><strong><?=esc(app_t($title ?? 'Dashboard'))?></strong><span> · Inventory control</span></div><div class="top-actions"><form class="language-picker" method="post" action="<?=site_url('language')?>" data-language-form>
-<?=csrf_field()?><input type="hidden" name="redirect" value="/<?=esc(trim(uri_string(), '/'))?>">
-<label for="language-select" class="sr-only">Language</label><select id="language-select" name="_language" data-language-select aria-label="Language">
-<option value="en" <?=app_locale()==='en'?'selected':''?>>English</option><option value="hi" <?=app_locale()==='hi'?'selected':''?>>हिंदी</option><option value="hinglish" <?=app_locale()==='hinglish'?'selected':''?>>Hinglish</option></select></form><div class="top-user"><div class="avatar"><?=esc($initial)?></div><div><strong style="font-size:12px;display:block"><?=esc($userName ?: 'User')?></strong><span class="muted" style="font-size:10px"><?=esc(ucfirst($role ?: 'member'))?></span></div></div></div></header>
+<header class="topbar"><div class="crumb"><strong><?=esc(app_t($title ?? 'Dashboard'))?></strong><span> · Inventory control</span></div><div class="top-actions"><div class="language-picker">
+<label for="language-select" class="sr-only">Language</label><select id="language-select" data-language-select aria-label="Language" data-language-url="<?=esc(site_url('language'))?>" data-language-redirect="/<?=esc(trim(uri_string(), '/'))?>">
+<option value="en" <?=app_locale()==='en'?'selected':''?>>English</option><option value="hi" <?=app_locale()==='hi'?'selected':''?>>हिंदी</option><option value="hinglish" <?=app_locale()==='hinglish'?'selected':''?>>Hinglish</option></select></div><div class="top-user"><div class="avatar"><?=esc($initial)?></div><div><strong style="font-size:12px;display:block"><?=esc($userName ?: 'User')?></strong><span class="muted" style="font-size:10px"><?=esc(ucfirst($role ?: 'member'))?></span></div></div></div></header>
 <script>window.APP_I18N = <?=json_encode(app_translations(), JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)?>;</script>
 <main class="content">
 <?php if(session()->getFlashdata('success')): ?><div class="alert success" data-autohide><?=esc(session()->getFlashdata('success'))?></div><?php endif; ?>
