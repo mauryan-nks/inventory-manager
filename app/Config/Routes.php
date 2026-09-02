@@ -8,8 +8,7 @@ $routes->get('/', 'Auth::login');
 $routes->get('login', 'Auth::login');
 $routes->post('login', 'Auth::authenticate');
 $routes->get('logout', 'Auth::logout');
-
-$routes->post('language/(:segment)', 'Language::set/$1', ['filter' => 'auth']);
+$routes->post('language', 'Language::set', ['filter' => 'auth']);
 
 $routes->get('dashboard', 'Dashboard::index', ['filter' => 'auth']);
 

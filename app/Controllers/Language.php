@@ -4,16 +4,22 @@ namespace App\Controllers;
 
 class Language extends BaseController
 {
-    public function set(string $locale)
+    public function set()
     {
-        $locale = strtolower(trim($locale));
-        if (!in_array($locale, ['en', 'hi', 'hinglish'], true)) {
-            return redirect()->back()->with('error', 'Unsupported language.');
+        $language = (string) $this->request->getPost('_language');
+        $allowed = ['en', 'hi', 'hinglish'];
+
+        if (!in_array($language, $allowed, true)) {
+            return redirect()->back()->with('error', 'Invalid language selected.');
         }
-        service('session')->set('locale', $locale);
-        $this->request->setLocale($locale === 'hinglish' ? 'en' : $locale);
-        $back = (string) $this->request->getPost('redirect');
-        if ($back === '' || !str_starts_with($back, '/')) $back = '/' . ltrim(uri_string(), '/');
-        return redirect()->to($back);
+
+        session()->set('locale', $language);
+
+        $redirect = (string) $this->request->getPost('redirect');
+        if ($redirect !== '' && str_starts_with($redirect, '/') && !str_starts_with($redirect, '//')) {
+            return redirect()->to(site_url(ltrim($redirect, '/')));
+        }
+
+        return redirect()->back();
     }
 }

@@ -36,7 +36,7 @@ $canReports = $authNav->can('reports.stock') || $authNav->can('reports.in') || $
 <button class="mobile-menu-fab" type="button" data-menu aria-label="Open navigation" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 <aside class="sidebar">
   <div class="brand">
-    <?php if($logoSrc): ?><img class="brand-logo" src="<?=esc($logoSrc)?>"  width="55px" alt="Company logo"><?php else: ?><div class="brand-mark"><?=esc(strtoupper(substr($appName,0,2)))?></div><?php endif; ?>
+    <?php if($logoSrc): ?><img class="brand-logo" width="55px" src="<?=esc($logoSrc)?>" alt="Company logo"><?php else: ?><div class="brand-mark"><?=esc(strtoupper(substr($appName,0,2)))?></div><?php endif; ?>
     <div><strong><?=esc($appName)?></strong><span>Stock & movement control</span></div>
   </div>
   <nav class="nav">
@@ -69,7 +69,7 @@ $canReports = $authNav->can('reports.stock') || $authNav->can('reports.in') || $
 </aside>
 <div class="sidebar-overlay" data-menu-close aria-hidden="true"></div>
 <div class="main">
-<header class="topbar"><div class="crumb"><strong><?=esc(app_t($title ?? 'Dashboard'))?></strong><span> · Inventory control</span></div><div class="top-actions"><form class="language-picker" method="post" action="<?=site_url('language/'.app_locale())?>" data-language-form data-language-base="<?=esc(site_url('language'))?>">
+<header class="topbar"><div class="crumb"><strong><?=esc(app_t($title ?? 'Dashboard'))?></strong><span> · Inventory control</span></div><div class="top-actions"><form class="language-picker" method="post" action="<?=site_url('language')?>" data-language-form>
 <?=csrf_field()?><input type="hidden" name="redirect" value="/<?=esc(trim(uri_string(), '/'))?>">
 <label for="language-select" class="sr-only">Language</label><select id="language-select" name="_language" data-language-select aria-label="Language">
 <option value="en" <?=app_locale()==='en'?'selected':''?>>English</option><option value="hi" <?=app_locale()==='hi'?'selected':''?>>हिंदी</option><option value="hinglish" <?=app_locale()==='hinglish'?'selected':''?>>Hinglish</option></select></form><div class="top-user"><div class="avatar"><?=esc($initial)?></div><div><strong style="font-size:12px;display:block"><?=esc($userName ?: 'User')?></strong><span class="muted" style="font-size:10px"><?=esc(ucfirst($role ?: 'member'))?></span></div></div></div></header>
