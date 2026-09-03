@@ -31,7 +31,7 @@ function init(select){
  const renderLocal=q=>{
    q=(q||'').toLowerCase();
    const rows=initial.filter(o=>o.v&&(!q||o.t.toLowerCase().includes(q)||o.c.toLowerCase().includes(q)));
-   render(rows.map(o=>({id:o.v,code:'',name:o.t,category_name:'',unit:'',category_id:o.c})));
+   render(rows.map(o=>({id:o.v,code:'',name:o.t,category_name:o.c||'Uncategorized',unit:'',category_id:o.c})));
  };
  const restore=()=>{select.innerHTML=initial.map(o=>`<option value="${esc(o.v)}" data-category="${esc(o.c)}" ${o.s?'selected':''}>${esc(o.t)}</option>`).join('');sync();};
  const search=debounce(async()=>{

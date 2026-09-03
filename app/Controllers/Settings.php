@@ -34,7 +34,19 @@ class Settings extends BaseController
     public function save()
     {
         $model = new SettingModel();
-        $allowed = ['app_name', 'company_name', 'company_address', 'company_phone', 'company_email', 'company_tax', 'company_logo', 'timezone', 'whatsappjs_enabled', 'factory_production_enabled'];
+        $allowed = [
+            'app_name',
+            'company_name',
+            'company_address',
+            'company_phone',
+            'company_email',
+            'company_tax',
+            'company_logo',
+            'challan_font_family',
+            'challan_font_size',
+            'timezone',
+            'whatsappjs_enabled',
+        ];
 
         foreach ($allowed as $key) {
             // company_logo is managed by the upload handler below. Do not erase an
@@ -44,9 +56,35 @@ class Settings extends BaseController
             }
 
             $value = trim((string) $this->request->getPost($key));
+
+            // Keep challan typography limited to the options offered in Settings.
+            if ($key === 'challan_font_family') {
+                $allowedFonts = [
+                    'Arial, Helvetica, sans-serif',
+                    'Verdana, Geneva, sans-serif',
+                    'Tahoma, Geneva, sans-serif',
+                    'Trebuchet MS, Arial, sans-serif',
+                    'Georgia, serif',
+                    'Times New Roman, Times, serif',
+                    'Courier New, Courier, monospace',
+                    'Noto Sans, Arial, sans-serif',
+                ];
+                if (!in_array($value, $allowedFonts, true)) {
+                    $value = 'Arial, Helvetica, sans-serif';
+                }
+            }
+
+            if ($key === 'challan_font_size') {
+                $allowedSizes = ['7', '8', '9', '10', '11', '12'];
+                if (!in_array($value, $allowedSizes, true)) {
+                    $value = '9';
+                }
+            }
+
             if ($key === 'company_logo' && $value === '') {
                 $value = (string) ($model->where('setting_key', $key)->first()['setting_value'] ?? '');
             }
+
             $this->upsertSetting($model, $key, $value);
         }
 
@@ -94,7 +132,6 @@ class Settings extends BaseController
 
         $timezone = trim((string) $this->request->getPost('timezone'));
         if ($timezone !== '' && in_array($timezone, timezone_identifiers_list(), true)) {
-            // Runtime setting is intentionally limited to PHP's known timezones.
             date_default_timezone_set($timezone);
         }
 

@@ -1,5 +1,5 @@
 <?= $this->include('layouts/header') ?>
-<link rel="stylesheet" href="<?=base_url('assets/css/production.css')?>?v=20260903prod2">
+<link rel="stylesheet" href="<?=base_url('assets/css/production.css')?>?v=20260903prod3">
 <div class="page-head"><div><div class="page-kicker">Factory</div><h1 class="page-title">Factory Production</h1><p class="page-subtitle">Record finished goods produced by the factory. Each entry is added to stock through the normal ledger.</p></div><div class="head-actions"><a class="btn primary" href="<?=site_url('production/create')?>">+ Add Production</a></div></div>
 <div class="card"><div class="section-head"><div><h2 class="section-title">Production history</h2><div class="section-meta"><?=number_format(count($rows))?> entries</div></div></div>
 <div class="table-wrap"><table class="table production-table"><thead><tr><th>Date</th><th>Item</th><th>Category</th><th>Quantity</th><th>Stock Entry</th><th>Created by</th></tr></thead><tbody>
