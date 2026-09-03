@@ -1,1 +1,1 @@
-</main></div></div><script src="<?=base_url('assets/js/app.js?v='.rawurlencode((string)@filemtime(FCPATH.'assets/js/app.js')))?>"></script></body></html>
+</main></div></div><script>window.APP_BASE_URL=<?=json_encode(rtrim(site_url(),'/').'/')?>;</script><script src="<?=base_url('assets/js/app.js')?>?v=20260903calc-pagination1"></script><link rel="stylesheet" href="<?=base_url('assets/css/product-search.css')?>?v=20260903ajaxinside2"><link rel="stylesheet" href="<?=base_url('assets/css/app-pagination.css')?>?v=20260903pager1"></body></html>

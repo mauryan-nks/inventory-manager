@@ -1,0 +1,4 @@
+.table-pagination{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin:10px 0 18px}
+.table-pagination-info{font-size:13px;color:#64748b;min-width:150px;text-align:center}
+.table-pagination button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:600px){.table-pagination{justify-content:center;flex-wrap:wrap}.table-pagination-info{order:-1;width:100%}}

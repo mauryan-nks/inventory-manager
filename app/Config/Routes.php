@@ -34,10 +34,15 @@ $routes->post('products/categories/store', 'Products::categoryStore', ['filter' 
 $routes->get('inventory', 'Inventory::index', ['filter' => 'auth:inventory.view']);
 $routes->get('inventory/in', 'Inventory::in', ['filter' => 'auth:inventory.in']);
 $routes->get('inventory/out', 'Inventory::out', ['filter' => 'auth:inventory.out']);
+$routes->get('inventory/products/search', 'Inventory::productSearch', ['filter' => 'auth']);
 $routes->post('inventory/store', 'Inventory::store', ['filter' => 'auth']);
 $routes->get('inventory/transactions', 'Inventory::transactions', ['filter' => 'auth:inventory.view']);
 $routes->get('inventory/transactions/(:num)', 'Inventory::detail/$1', ['filter' => 'auth:inventory.view']);
 $routes->get('inventory/transactions/(:num)/challan', 'Inventory::challan/$1', ['filter' => 'auth:inventory.view']);
+
+$routes->get('production', 'Production::index', ['filter' => 'auth:inventory.in']);
+$routes->get('production/create', 'Production::create', ['filter' => 'auth:inventory.in']);
+$routes->post('production/store', 'Production::store', ['filter' => 'auth:inventory.in']);
 
 
 $routes->get('security', 'Security::index', ['filter' => 'auth']);

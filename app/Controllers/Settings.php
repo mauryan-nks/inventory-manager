@@ -34,7 +34,7 @@ class Settings extends BaseController
     public function save()
     {
         $model = new SettingModel();
-        $allowed = ['app_name', 'company_name', 'company_address', 'company_phone', 'company_email', 'company_tax', 'company_logo', 'timezone', 'whatsappjs_enabled'];
+        $allowed = ['app_name', 'company_name', 'company_address', 'company_phone', 'company_email', 'company_tax', 'company_logo', 'timezone', 'whatsappjs_enabled', 'factory_production_enabled'];
 
         foreach ($allowed as $key) {
             // company_logo is managed by the upload handler below. Do not erase an

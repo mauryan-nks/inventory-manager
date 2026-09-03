@@ -41,7 +41,7 @@ class Inventory extends BaseController
         return view('inventory/form', [
             'title' => 'Inventory IN',
             'type' => 'IN',
-            'products' => $this->products->where('status', 1)->orderBy('name')->findAll(),
+            'products' => $this->products->select('products.*, categories.name AS category_name')->join('categories', 'categories.id = products.category_id', 'left')->where('products.status', 1)->orderBy('products.name')->findAll(),
             'stockMap' => $this->stockMap(),
             'productMap' => $this->productMap(),
             'variantMap' => $this->inventory->variantMap(),
@@ -54,7 +54,7 @@ class Inventory extends BaseController
         return view('inventory/form', [
             'title' => 'Inventory OUT',
             'type' => 'OUT',
-            'products' => $this->products->where('status', 1)->orderBy('name')->findAll(),
+            'products' => $this->products->select('products.*, categories.name AS category_name')->join('categories', 'categories.id = products.category_id', 'left')->where('products.status', 1)->orderBy('products.name')->findAll(),
             'stockMap' => $this->stockMap(),
             'productMap' => $this->productMap(),
             'variantMap' => $this->inventory->variantMap(),
@@ -116,6 +116,20 @@ class Inventory extends BaseController
         } catch (RuntimeException $e) {
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
+    }
+
+    public function productSearch()
+    {
+        $q = trim((string)$this->request->getGet('q'));
+        $limit = min(50, max(10, (int)$this->request->getGet('limit') ?: 30));
+        $builder = $this->products->select('products.id, products.code, products.name, products.unit, products.category_id, categories.name AS category_name')
+            ->join('categories', 'categories.id=products.category_id', 'left')
+            ->where('products.status', 1);
+        if ($q !== '') {
+            $builder->groupStart()->like('products.name', $q)->orLike('products.code', $q)->orLike('categories.name', $q)->groupEnd();
+        }
+        $rows = $builder->orderBy('products.name', 'ASC')->findAll($limit);
+        return $this->response->setJSON(['ok' => true, 'items' => $rows]);
     }
 
     public function detail(int $id)

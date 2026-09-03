@@ -40,7 +40,7 @@ class Reports extends BaseController
 
         $db = db_connect();
         $builder = $db->table('inventory_transactions t')
-            ->select("t.*, u.name AS user_name, GROUP_CONCAT(CONCAT(p.code,' · ',COALESCE(v.variant_name,''),' × ',i.quantity,' ',p.unit) SEPARATOR ', ') AS items")
+            ->select("t.*, u.name AS user_name, GROUP_CONCAT(CONCAT(p.code,' · ',COALESCE(v.variant_name,''),' × ',CAST(i.quantity AS UNSIGNED),' ',p.unit) SEPARATOR ', ') AS items")
             ->join('users u','u.id=t.created_by','left')
             ->join('inventory_transaction_items i','i.transaction_id=t.id','left')
             ->join('products p','p.id=i.product_id','left')->join('product_variants v','v.id=i.variant_id','left')
@@ -168,7 +168,7 @@ class Reports extends BaseController
             $header = ['Code','Product','Unit','Opening','Minimum','Current'];
             $data = array_map(fn($r) => [$r['code'],$r['name'],$r['unit'],$r['opening_stock'],$r['minimum_stock'],$r['current_stock']], $rows);
         } elseif (in_array($type, ['IN','OUT'], true)) {
-            $rows = db_connect()->table('inventory_transactions t')->select("t.transaction_no,t.created_at,t.reference_no,t.party_name,t.vehicle_no,t.status,u.name AS user_name,GROUP_CONCAT(CONCAT(p.code,' · ',COALESCE(v.variant_name,''),' × ',i.quantity,' ',p.unit) SEPARATOR ', ') AS items")->join('users u','u.id=t.created_by','left')->join('inventory_transaction_items i','i.transaction_id=t.id','left')->join('products p','p.id=i.product_id','left')->join('product_variants v','v.id=i.variant_id','left')->where('t.type',$type)->groupBy('t.id')->orderBy('t.id','DESC')->get()->getResultArray();
+            $rows = db_connect()->table('inventory_transactions t')->select("t.transaction_no,t.created_at,t.reference_no,t.party_name,t.vehicle_no,t.status,u.name AS user_name,GROUP_CONCAT(CONCAT(p.code,' · ',COALESCE(v.variant_name,''),' × ',CAST(i.quantity AS UNSIGNED),' ',p.unit) SEPARATOR ', ') AS items")->join('users u','u.id=t.created_by','left')->join('inventory_transaction_items i','i.transaction_id=t.id','left')->join('products p','p.id=i.product_id','left')->join('product_variants v','v.id=i.variant_id','left')->where('t.type',$type)->groupBy('t.id')->orderBy('t.id','DESC')->get()->getResultArray();
             $header = ['Transaction','Date/Time','Reference','Party','Vehicle','Status','User','Items'];
             $data = array_map(fn($r) => [$r['transaction_no'],$r['created_at'],$r['reference_no'],$r['party_name'],$r['vehicle_no'],$r['status'],$r['user_name'],$r['items']], $rows);
         } else {

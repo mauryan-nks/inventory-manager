@@ -51,6 +51,7 @@ $canReports = $authNav->can('reports.stock') || $authNav->can('reports.in') || $
     <?php if($canProducts): ?>
     <div class="nav-label"><?=esc(app_t('Catalog'))?></div>
     <a class="<?=$active(['products'])?>" href="<?=site_url('products')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h6M8 16h5"/></svg><?=esc(app_t('Products'))?></a>
+    <?php if(($settingsMap['factory_production_enabled'] ?? '0') === '1' && $authNav->can('inventory.in')): ?><a class="<?=$active(['production'])?>" href="<?=site_url('production')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h16M6 20V8l6-4 6 4v12M9 20v-5h6v5M9 9h.01M12 9h.01M15 9h.01"/></svg><?=esc(app_t('Factory Production'))?></a><?php endif; ?>
     <?php endif; ?>
     <?php if($canSecurity): ?>
     <div class="nav-label"><?=esc(app_t('Gate desk'))?></div>

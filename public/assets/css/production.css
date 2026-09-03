@@ -1,0 +1,29 @@
+/* Factory Production responsive UI */
+.production-shell{max-width:1100px;margin:0 auto}
+.production-form-card{max-width:980px!important}
+.production-form-card .form-grid{gap:18px}
+.production-form-card .field{min-width:0}
+.production-form-card select,.production-form-card input{width:100%;min-height:44px}
+.production-form-card .form-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.production-note{display:flex;gap:12px;align-items:flex-start;padding:15px 16px;border-radius:14px}
+.production-note strong{display:block;margin-bottom:3px}
+.production-table td,.production-table th{vertical-align:middle}
+.production-qty{font-variant-numeric:tabular-nums;font-weight:800;white-space:nowrap}
+.production-stock-link{font-weight:700}
+@media(max-width:700px){
+  .production-form-card{padding:14px!important}
+  .production-form-card .form-grid{grid-template-columns:1fr!important}
+  .production-form-card .form-actions{display:grid;grid-template-columns:1fr 1fr}
+  .production-form-card .form-actions .btn{width:100%;justify-content:center}
+  .production-note{font-size:12px}
+}
+@media(max-width:430px){
+  .production-form-card .form-actions{grid-template-columns:1fr}
+}
+
+/* Form alignment polish */
+.production-form-card{margin-left:0;margin-right:auto}
+.production-form-card .form-grid{align-items:start}
+.production-form-card .field{display:flex;flex-direction:column;justify-content:flex-start}
+.production-form-card .field .hint{min-height:17px}
+.production-form-card .form-actions{align-items:center}
