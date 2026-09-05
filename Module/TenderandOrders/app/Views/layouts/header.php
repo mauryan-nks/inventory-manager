@@ -1,0 +1,95 @@
+<?php
+$authNav = new \App\Services\AuthService();
+$currentPath = trim(uri_string(), '/');
+$userName = (string) service('session')->get('user_name');
+$role = (string) service('session')->get('role');
+$settingRows = (new \App\Models\SettingModel())->findAll();
+$settingsMap = array_column($settingRows, 'setting_value', 'setting_key');
+$appName = trim((string)($settingsMap['app_name'] ?? 'Inventory Manager')) ?: 'Inventory Manager';
+$companyLogo = trim((string)($settingsMap['company_logo'] ?? ''));
+$logoSrc = '';
+if ($companyLogo !== '') {
+    $logoSrc = preg_match('~^https?://~i', $companyLogo) ? $companyLogo : base_url(ltrim($companyLogo, '/'));
+}
+$initial = strtoupper(substr(trim($userName ?: 'U'), 0, 1));
+$active = function(array $paths) use ($currentPath): string {
+    foreach ($paths as $path) {
+        if ($path === '' && $currentPath === '') return 'active';
+        if ($path !== '' && ($currentPath === $path || str_starts_with($currentPath, trim($path, '/').'/'))) return 'active';
+    }
+    return '';
+};
+$canInventory = $authNav->can('inventory.view') || $authNav->can('inventory.in') || $authNav->can('inventory.out');
+$canProducts = $authNav->can('products.view') || $authNav->can('products.create');
+$canSecurity = $authNav->can('security.scan') || $authNav->can('security.manual_entry') || $authNav->can('security.history');
+$canReports = $authNav->can('reports.stock') || $authNav->can('reports.in') || $authNav->can('reports.out') || $authNav->can('reports.security') || $authNav->can('reports.compare');
+$isOrders = $role === 'admin' && (str_starts_with($currentPath, 'orders'));
+?>
+<!doctype html>
+<html lang="<?=esc(app_locale() === 'hi' ? 'hi' : 'en')?>">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title><?=esc(app_t($title ?? $appName))?> · <?=esc(app_t($appName))?></title>
+<link rel="stylesheet" href="<?=base_url('assets/css/app.css?v='.rawurlencode((string)@filemtime(FCPATH.'assets/css/app.css')))?>">
+</head>
+<body data-locale="<?=esc(app_locale())?>">
+<div class="app-shell">
+<button class="mobile-menu-fab" type="button" data-menu aria-label="Open navigation" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+<aside class="sidebar">
+  <div class="brand">
+    <?php if($logoSrc): ?><img class="brand-logo" src="<?=esc($logoSrc)?>" alt="Company logo"><?php else: ?><div class="brand-mark"><?=esc(strtoupper(substr($appName,0,2)))?></div><?php endif; ?>
+    <div><strong><?=esc($appName)?></strong><span>Stock & movement control</span></div>
+  </div>
+  <nav class="nav">
+    <?php if($isOrders): ?>
+      <div class="nav-label">Orders</div>
+      <a class="<?=$active(['orders'])?>" href="<?=site_url('orders')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/><path d="M7 5V3h10v2"/></svg><?=esc(app_t('Orders'))?></a>
+      <a class="<?=$currentPath==='orders'?'active':''?>" href="<?=site_url('orders')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>Orders Dashboard</a>
+      <a class="<?=$active(['orders/party'])?>" href="<?=site_url('orders')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20a6 6 0 0 1 12 0M15 20a5 5 0 0 1 6 0"/></svg>Parties</a>
+      <a href="<?=site_url('orders')?>#add-party"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>Add Party</a>
+      <div class="nav-label" style="margin-top:10px">Navigation</div>
+      <a href="<?=site_url('inventory')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>← Exit to Inventory</a>
+    <?php else: ?>
+      <?php if($role === 'admin'): ?>
+      <div class="nav-label">Orders</div>
+      <a class="<?=$active(['orders'])?>" href="<?=site_url('orders')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/><path d="M7 5V3h10v2"/></svg><?=esc(app_t('Orders'))?></a>
+      <?php endif; ?>
+      <a class="<?=$active(['dashboard'])?>" href="<?=site_url('dashboard')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg><?=esc(app_t('Dashboard'))?></a>
+      <?php if($canInventory): ?>
+      <div class="nav-label"><?=esc(app_t('Inventory'))?></div>
+      <?php if($authNav->can('inventory.view')): ?><a class="<?=$active(['inventory'])?>" href="<?=site_url('inventory')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M4 12h16M4 17h16"/><path d="M7 4v16"/></svg><?=esc(app_t('Current Stock'))?></a><?php endif; ?>
+      <?php if($authNav->can('inventory.in')): ?><a class="<?=$active(['inventory/in'])?>" href="<?=site_url('inventory/in')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 19V5M6 11l6-6 6 6"/></svg><?=esc(app_t('Product IN'))?></a><?php endif; ?>
+      <?php if($authNav->can('inventory.out')): ?><a class="<?=$active(['inventory/out'])?>" href="<?=site_url('inventory/out')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M6 13l6 6 6-6"/></svg><?=esc(app_t('Product OUT'))?></a><?php endif; ?>
+      <?php if($authNav->can('inventory.view')): ?><a class="<?=$active(['inventory/transactions'])?>" href="<?=site_url('inventory/transactions')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><?=esc(app_t('Transactions'))?></a><?php endif; ?>
+      <?php endif; ?>
+      <?php if($canProducts): ?>
+      <div class="nav-label"><?=esc(app_t('Catalog'))?></div>
+      <a class="<?=$active(['products'])?>" href="<?=site_url('products')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h6M8 16h5"/></svg><?=esc(app_t('Products'))?></a>
+      <?php if(($settingsMap['factory_production_enabled'] ?? '0') === '1' && $authNav->can('inventory.in')): ?><a class="<?=$active(['production'])?>" href="<?=site_url('production')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h16M6 20V8l6-4 6 4v12M9 20v-5h6v5M9 9h.01M12 9h.01M15 9h.01"/></svg><?=esc(app_t('Factory Production'))?></a><?php endif; ?>
+      <?php endif; ?>
+      <?php if($canSecurity): ?>
+      <div class="nav-label"><?=esc(app_t('Gate desk'))?></div>
+      <a class="<?=$active(['security'])?>" href="<?=site_url('security')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 11a7 7 0 0 1 14 0v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/><path d="M8 11V9a4 4 0 0 1 8 0v2"/></svg><?=esc(app_t('Security Desk'))?></a>
+      <?php if($authNav->can('visitor.manage')): ?><a class="<?=$active(['security/visitors'])?>" href="<?=site_url('security/visitors')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0M17 11a3 3 0 1 1 0-6"/></svg><?=esc(app_t('Visitor Register'))?></a><?php endif; ?>
+      <?php endif; ?>
+      <?php if($canReports): ?>
+      <div class="nav-label"><?=esc(app_t('Insights'))?></div>
+      <a class="<?=$active(['reports'])?>" href="<?=site_url('reports')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h16"/><path d="M8 16v-5M12 16V8M16 16v-3M20 16V6"/></svg><?=esc(app_t('Reports'))?></a>
+      <?php if($authNav->can('reports.compare')): ?><a class="<?=$active(['reports/compare'])?>" href="<?=site_url('reports/compare')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 18V6M12 18V3M19 18v-8"/><path d="M3 20h18"/></svg><?=esc(app_t('Compare'))?></a><?php endif; ?>
+      <?php endif; ?>
+      <?php if($authNav->can('users.view')): ?><a class="<?=$active(['users'])?>" href="<?=site_url('users')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 11a3 3 0 1 0 0-6M18 14a4 4 0 0 1 3 4"/></svg><?=esc(app_t('Users & Access'))?></a><?php endif; ?>
+      <?php if($authNav->can('audit.view')): ?><a class="<?=$active(['audit'])?>" href="<?=site_url('audit')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg><?=esc(app_t('Audit Log'))?></a><?php endif; ?>
+      <?php if($authNav->can('settings.view')): ?><a class="<?=$active(['settings'])?>" href="<?=site_url('settings')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/><path d="M4 12h2m12 0h2M12 4v2m0 12v2m-5.7-2.3 1.4-1.4m8.6 0 1.4 1.4M6.3 6.3l1.4 1.4m8.6 0 1.4-1.4"/></svg><?=esc(app_t('Settings'))?></a><?php endif; ?>
+    <?php endif; ?>
+  </nav>
+  <div class="sidebar-bottom"><div class="user-chip"><div class="avatar"><?=esc($initial)?></div><div style="min-width:0"><strong><?=esc($userName ?: 'User')?></strong><span><?=esc(ucfirst($role ?: 'member'))?></span><div><a href="<?=site_url('logout')?>"><?=esc(app_t('Sign out'))?></a></div></div></div></div>
+</aside>
+<div class="sidebar-overlay" data-menu-close aria-hidden="true"></div>
+<div class="main">
+<header class="topbar"><div class="crumb"><strong><?=esc(app_t($title ?? 'Dashboard'))?></strong><span> · <?= $isOrders ? 'Orders control' : 'Inventory control' ?></span></div><div class="top-actions"><div class="language-picker">
+<label for="language-select" class="sr-only">Language</label><select id="language-select" aria-label="Language" onchange="(function(s){var p='<?=esc(trim(uri_string(), '/'))?>'; window.location.href='<?=site_url('language')?>/'+encodeURIComponent(s.value)+'?redirect='+encodeURIComponent('/'+p);})(this)">
+<option value="en" <?=app_locale()==='en'?'selected':''?>>English</option><option value="hi" <?=app_locale()==='hi'?'selected':''?>>हिंदी</option><option value="hinglish" <?=app_locale()==='hinglish'?'selected':''?>>Hinglish</option></select></div><div class="top-user"><div class="avatar"><?=esc($initial)?></div><div><strong style="font-size:12px;display:block"><?=esc($userName ?: 'User')?></strong><span class="muted" style="font-size:10px"><?=esc(ucfirst($role ?: 'member'))?></span></div></div></div></header>
+<script>window.APP_I18N = <?=json_encode(app_translations(), JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)?>;</script>
+<main class="content">
+<?php if(session()->getFlashdata('success')): ?><div class="alert success" data-autohide><?=esc(session()->getFlashdata('success'))?></div><?php endif; ?>
+<?php if(session()->getFlashdata('error')): ?><div class="alert error"><?=esc(session()->getFlashdata('error'))?></div><?php endif; ?>

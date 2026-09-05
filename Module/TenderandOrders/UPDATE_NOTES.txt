@@ -1,0 +1,16 @@
+ORDERS MODULE UPDATE
+
+1. Upload these files over the existing CodeIgniter project.
+2. Orders is Admin-only. Non-admin users are redirected to Dashboard.
+3. Run: php spark migrate
+4. IMPORTANT cumulative migration fix: if the existing project has
+   app/Database/Migrations/20260905000019_CreateVisitors.php from the visitor update,
+   rename that file to 20260905000021_CreateVisitors.php and replace it with the
+   included 20260905000021_CreateVisitors.php. Do not keep both visitor migration
+   filenames at the same time.
+5. Orders document stages are virtual UI groups only. Uploaded files are stored in
+   one controlled location: writable/uploads/order_documents
+6. The package contains only changed/new files for the Orders module plus the
+   visitor migration-number collision fix.
+7. Existing Orders with delivery history keep item quantities locked during edit;
+   order dates/notes can still be edited. This prevents delivery history from being orphaned.
