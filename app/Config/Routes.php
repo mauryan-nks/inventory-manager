@@ -13,6 +13,26 @@ $routes->post('language', 'Language::set', ['filter' => 'auth']);
 
 $routes->get('dashboard', 'Dashboard::index', ['filter' => 'auth']);
 
+$routes->get('orders', 'Orders::index', ['filter' => 'auth']);
+$routes->get('orders/party/create', 'Orders::partyCreate', ['filter' => 'auth']);
+$routes->post('orders/party/store', 'Orders::partyStore', ['filter' => 'auth']);
+$routes->get('orders/party/(:num)/edit', 'Orders::partyEdit/$1', ['filter' => 'auth']);
+$routes->post('orders/party/(:num)/update', 'Orders::partyUpdate/$1', ['filter' => 'auth']);
+$routes->post('orders/party/(:num)/toggle', 'Orders::partyToggle/$1', ['filter' => 'auth']);
+$routes->get('orders/party/(:num)', 'Orders::partyOrders/$1', ['filter' => 'auth']);
+$routes->get('orders/party/(:num)/create', 'Orders::create/$1', ['filter' => 'auth']);
+$routes->post('orders/store', 'Orders::store', ['filter' => 'auth']);
+$routes->get('orders/(:num)/edit', 'Orders::edit/$1', ['filter' => 'auth']);
+$routes->post('orders/(:num)/update', 'Orders::update/$1', ['filter' => 'auth']);
+$routes->get('orders/(:num)', 'Orders::viewOrder/$1', ['filter' => 'auth']);
+$routes->post('orders/(:num)/delete', 'Orders::delete/$1', ['filter' => 'auth']);
+$routes->post('orders/(:num)/delivery', 'Orders::deliveryStore/$1', ['filter' => 'auth']);
+$routes->post('orders/delivery/(:num)/delete', 'Orders::deliveryDelete/$1', ['filter' => 'auth']);
+$routes->get('orders/(:num)/files', 'Orders::files/$1', ['filter' => 'auth']);
+$routes->post('orders/(:num)/files/upload', 'Orders::fileUpload/$1', ['filter' => 'auth']);
+$routes->get('orders/file/(:num)/download', 'Orders::fileDownload/$1', ['filter' => 'auth']);
+$routes->post('orders/file/(:num)/delete', 'Orders::fileDelete/$1', ['filter' => 'auth']);
+
 $routes->get('users', 'Users::index', ['filter' => 'auth:users.view']);
 $routes->get('users/create', 'Users::create', ['filter' => 'auth:users.create']);
 $routes->post('users/store', 'Users::store', ['filter' => 'auth:users.create']);
@@ -74,3 +94,7 @@ $routes->get('audit', 'Audit::index', ['filter' => 'auth:audit.view']);
 
 $routes->get('settings', 'Settings::index', ['filter' => 'auth:settings.view']);
 $routes->post('settings/save', 'Settings::save', ['filter' => 'auth:settings.manage']);
+
+$routes->get('gst/start', 'Gst::start', ['filter' => 'auth']);
+$routes->get('gst/refresh', 'Gst::refresh', ['filter' => 'auth']);
+$routes->post('gst/validate', 'Gst::validateGst', ['filter' => 'auth']);

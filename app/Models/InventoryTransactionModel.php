@@ -14,6 +14,7 @@ class InventoryTransactionModel extends Model
         'type',
         'reference_no',
         'party_name',
+        'party_gstin',
         'vehicle_no',
         'remarks',
         'created_by',

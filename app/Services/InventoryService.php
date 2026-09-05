@@ -166,7 +166,7 @@ class InventoryService
             $transactionNo = $this->generateTransactionNo($type);
             $transactionId = $this->transactions->insert([
                 'transaction_no'=>$transactionNo,'type'=>$type,
-                'reference_no'=>$header['reference_no'] ?? null,'party_name'=>$header['party_name'] ?? null,
+                'reference_no'=>$header['reference_no'] ?? null,'party_name'=>$header['party_name'] ?? null,'party_gstin'=>$header['party_gstin'] ?? null,
                 'vehicle_no'=>$header['vehicle_no'] ?? null,'remarks'=>$header['remarks'] ?? null,
                 'created_by'=>$userId,'status'=>'CONFIRMED','created_at'=>date('Y-m-d H:i:s'),'updated_at'=>date('Y-m-d H:i:s'),
             ], true);

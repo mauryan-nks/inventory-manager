@@ -46,6 +46,7 @@ class Settings extends BaseController
             'challan_font_size',
             'timezone',
             'whatsappjs_enabled',
+            'gst_api_key',
         ];
 
         foreach ($allowed as $key) {

@@ -116,6 +116,15 @@
 
             </div>
 
+            <div class="section-head" style="margin-top:24px">
+                <div><h2 class="section-title">GST API</h2><div class="section-meta">Vismrit GST validation is used by Orders parties and Inventory IN / OUT.</div></div>
+            </div>
+            <div class="field" style="margin-top:15px">
+                <label>GST API key</label>
+                <input type="password" name="gst_api_key" value="<?=esc(old('gst_api_key',$map['gst_api_key']??''))?>" autocomplete="new-password" placeholder="Paste your GST API key">
+                <div class="hint">Stored in application settings. GST validation calls are made server-side; the API key is never sent to the browser.</div>
+            </div>
+
             <div class="field" style="margin-top:15px">
                 <label>WhatsAppJS alerts</label>
                 <select name="whatsappjs_enabled">

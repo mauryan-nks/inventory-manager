@@ -7,6 +7,7 @@ use App\Models\ProductModel;
 use App\Services\InventoryService;
 use RuntimeException;
 use App\Services\AuthService;
+use App\Services\GstService;
 use App\Models\SettingModel;
 
 class Inventory extends BaseController
@@ -75,6 +76,9 @@ class Inventory extends BaseController
             return redirect()->to('/dashboard')->with('error', 'You do not have permission to create this transaction.');
         }
 
+        $partyGstin = strtoupper(trim((string)$this->request->getPost('party_gstin')));
+        if ($partyGstin !== '' && !(new GstService())->wasValidated($partyGstin)) { return redirect()->back()->withInput()->with('error', 'Please validate the GSTIN with the GST API before saving this transaction.'); }
+
         $productIds = $this->request->getPost('product_id') ?? [];
         $quantities = $this->request->getPost('quantity') ?? [];
         $variantIds = $this->request->getPost('variant_id') ?? [];
@@ -104,6 +108,7 @@ class Inventory extends BaseController
                 [
                     'reference_no' => trim((string)$this->request->getPost('reference_no')) ?: null,
                     'party_name' => trim((string)$this->request->getPost('party_name')) ?: null,
+                    'party_gstin' => strtoupper(trim((string)$this->request->getPost('party_gstin'))) ?: null,
                     'vehicle_no' => trim((string)$this->request->getPost('vehicle_no')) ?: null,
                     'remarks' => trim((string)$this->request->getPost('remarks')) ?: null,
                 ]
@@ -180,7 +185,7 @@ class Inventory extends BaseController
         $from = trim((string)$this->request->getGet('from'));
         $to = trim((string)$this->request->getGet('to'));
         $builder = $model->select('inventory_transactions.*, users.name AS user_name, fp.operator_name, fp.machine_name, fp.production_date, fp.item_name AS factory_item_name')->join('users', 'users.id = inventory_transactions.created_by', 'left')->join('factory_productions fp', 'fp.transaction_id = inventory_transactions.id', 'left');
-        if ($q !== '') { $builder->groupStart()->like('transaction_no',$q)->orLike('reference_no',$q)->orLike('party_name',$q)->orLike('users.name',$q)->orLike('fp.operator_name',$q)->orLike('fp.machine_name',$q)->orLike('fp.item_name',$q)->groupEnd(); }
+        if ($q !== '') { $builder->groupStart()->like('transaction_no',$q)->orLike('reference_no',$q)->orLike('party_name',$q)->orLike('party_gstin',$q)->orLike('users.name',$q)->orLike('fp.operator_name',$q)->orLike('fp.machine_name',$q)->orLike('fp.item_name',$q)->groupEnd(); }
         if ($type === 'FACTORY') { $builder->where('fp.transaction_id IS NOT NULL', null, false); } elseif (in_array($type,['IN','OUT'],true)) { $builder->where('inventory_transactions.type',$type)->where('fp.transaction_id IS NULL', null, false); }
         if (in_array($status,['CONFIRMED','VOID'],true)) $builder->where('inventory_transactions.status',$status);
         if ($from !== '') $builder->where('inventory_transactions.created_at >=',$from.' 00:00:00');
