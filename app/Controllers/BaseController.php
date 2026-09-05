@@ -39,6 +39,12 @@ abstract class BaseController extends Controller
         // Caution: Do not edit this line.
         parent::initController($request, $response, $logger);
 
+        // Keep all PHP application timestamps in India Standard Time.
+        date_default_timezone_set('Asia/Kolkata');
+
+        // All application timestamps are stored/displayed in India Standard Time.
+        date_default_timezone_set('Asia/Kolkata');
+
         // Load the application UI translation helper on every request.
         helper('i18n');
 

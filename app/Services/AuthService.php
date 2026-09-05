@@ -74,7 +74,11 @@ class AuthService
             return false;
         }
 
-        if (service('session')->get('role') === 'admin') {
+        $role = (string) service('session')->get('role');
+        if (in_array($role, ['admin', 'owner'], true)) {
+            return true;
+        }
+        if ($role === 'security' && $permission === 'visitor.manage') {
             return true;
         }
 

@@ -5,6 +5,8 @@ namespace App\Controllers;
 use App\Models\IncomingDocumentModel;
 use App\Models\InventoryTransactionModel;
 use App\Models\ProductModel;
+use App\Models\UserModel;
+use App\Models\VisitorModel;
 use App\Services\AuditService;
 use App\Services\InventoryService;
 use App\Services\AuthService;
@@ -15,12 +17,16 @@ class Security extends BaseController
     protected IncomingDocumentModel $documents;
     protected ProductModel $products;
     protected InventoryService $inventory;
+    protected VisitorModel $visitors;
+    protected UserModel $users;
 
     public function __construct()
     {
         $this->documents = new IncomingDocumentModel();
         $this->products = new ProductModel();
         $this->inventory = new InventoryService();
+        $this->visitors = new VisitorModel();
+        $this->users = new UserModel();
     }
 
     public function index()
@@ -38,11 +44,15 @@ class Security extends BaseController
             ->orderBy('incoming_documents.id', 'DESC')
             ->findAll();
 
+        $auth = new AuthService();
+        $visitorRows = $this->visitorRows(25);
         return view('security/index', [
             'title' => 'Security Guard Dashboard',
             'documents' => $documents,
-            'canScan' => (new AuthService())->can('security.scan'),
-            'canManual' => (new AuthService())->can('security.manual_entry'),
+            'canScan' => $auth->can('security.scan'),
+            'canManual' => $auth->can('security.manual_entry'),
+            'canVisitor' => $auth->can('visitor.manage'),
+            'visitorRows' => $visitorRows,
         ]);
     }
 
@@ -292,6 +302,177 @@ class Security extends BaseController
         if ($q !== '') { $builder->groupStart()->like('incoming_documents.original_filename',$q)->orLike('inventory_transactions.reference_no',$q)->orLike('inventory_transactions.party_name',$q)->orLike('users.name',$q)->groupEnd(); }
         $documents = $builder->orderBy('incoming_documents.id', 'DESC')->findAll();
         return view('security/history', ['title' => 'Incoming History', 'documents' => $documents, 'q'=>$q]);
+    }
+
+    public function visitors()
+    {
+        $auth = new AuthService();
+        if (!$auth->can('visitor.manage')) {
+            return redirect()->to('/security')->with('error', 'Visitor register access is not assigned to your account.');
+        }
+
+        $owners = $this->users->where('status', 1)->whereIn('role', ['owner', 'admin'])->orderBy('name', 'ASC')->findAll();
+        return view('security/visitors', [
+            'title' => 'Visitor Register',
+            'owners' => $owners,
+            'visitorRows' => $this->visitorRows(100),
+        ]);
+    }
+
+    public function visitorStore()
+    {
+        $auth = new AuthService();
+        if (!$auth->can('visitor.manage')) {
+            return redirect()->to('/security')->with('error', 'Visitor register access is not assigned to your account.');
+        }
+
+        $type = strtoupper(trim((string)$this->request->getPost('visitor_type')));
+        if (!in_array($type, ['GENERAL', 'OWNER_MEETING'], true)) {
+            $type = 'GENERAL';
+        }
+
+        $name = trim((string)$this->request->getPost('name'));
+        $purpose = trim((string)$this->request->getPost('purpose'));
+        $ownerId = (int)$this->request->getPost('owner_id');
+
+        if ($name === '') {
+            return redirect()->back()->withInput()->with('error', 'Visitor name is required.');
+        }
+        if ($purpose === '') {
+            return redirect()->back()->withInput()->with('error', 'Please enter what work/purpose the visitor has.');
+        }
+
+        $owner = null;
+        if ($type === 'OWNER_MEETING') {
+            $owner = $this->users->where('id', $ownerId)->where('status', 1)->whereIn('role', ['owner', 'admin'])->first();
+            if (!$owner) {
+                return redirect()->back()->withInput()->with('error', 'Please select a valid owner/approver.');
+            }
+        } else {
+            $ownerId = null;
+        }
+
+        $photoPath = null;
+        $photo = $this->request->getFile('photo');
+        if ($photo && $photo->isValid() && !$photo->hasMoved()) {
+            $mime = strtolower((string)$photo->getMimeType());
+            $allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+            if (!isset($allowed[$mime])) {
+                return redirect()->back()->withInput()->with('error', 'Visitor photo must be JPG, PNG or WEBP.');
+            }
+            if ($photo->getSize() > 5 * 1024 * 1024) {
+                return redirect()->back()->withInput()->with('error', 'Visitor photo must be 5 MB or smaller.');
+            }
+            $dir = WRITEPATH . 'uploads/visitors';
+            if (!is_dir($dir)) mkdir($dir, 0750, true);
+            $stored = 'visitor_' . date('YmdHis') . '_' . bin2hex(random_bytes(5)) . '.' . $allowed[$mime];
+            $photo->move($dir, $stored);
+            $photoPath = 'uploads/visitors/' . $stored;
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $status = $type === 'OWNER_MEETING' ? 'PENDING' : 'CHECKED_IN';
+        $id = $this->visitors->insert([
+            'visitor_type' => $type,
+            'name' => $name,
+            'photo_path' => $photoPath,
+            'purpose' => $purpose,
+            'owner_id' => $ownerId,
+            'status' => $status,
+            'entry_at' => $now,
+            'created_by' => (int)service('session')->get('user_id'),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], true);
+
+        (new AuditService())->record(
+            $type === 'OWNER_MEETING' ? 'VISITOR_APPROVAL_REQUEST' : 'VISITOR_CHECK_IN',
+            'security',
+            (int)$id,
+            $type === 'OWNER_MEETING' ? 'Visitor requested owner meeting; waiting for approval.' : 'General visitor checked in at security desk.'
+        );
+
+        if ($type === 'OWNER_MEETING') {
+            return redirect()->to('/security/visitors')->with('success', 'Visitor registered. Waiting for ' . $owner['name'] . ' to approve entry.');
+        }
+        return redirect()->to('/security/visitors')->with('success', 'Visitor checked in and added to the register.');
+    }
+
+    public function visitorPhoto(int $id)
+    {
+        if (!(new AuthService())->check()) {
+            return redirect()->to('/login');
+        }
+        $visitor = $this->visitors->find($id);
+        if (!$visitor || empty($visitor['photo_path'])) {
+            return $this->response->setStatusCode(404)->setBody('Photo not found.');
+        }
+        $full = WRITEPATH . str_replace('/', DIRECTORY_SEPARATOR, ltrim($visitor['photo_path'], '/'));
+        if (!is_file($full)) {
+            return $this->response->setStatusCode(404)->setBody('Photo not found.');
+        }
+        $mime = function_exists('mime_content_type') ? mime_content_type($full) : 'image/jpeg';
+        return $this->response->setHeader('Content-Type', $mime)->setHeader('Cache-Control', 'private, max-age=3600')->setBody((string)file_get_contents($full));
+    }
+
+    public function visitorPending()
+    {
+        $auth = new AuthService();
+        if (!$auth->can('visitor.approve')) {
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'items' => []]);
+        }
+        $uid = (int)service('session')->get('user_id');
+        $rows = $this->visitors->select('visitors.*, owner.name AS owner_name, guard.name AS guard_name')
+            ->join('users owner', 'owner.id=visitors.owner_id', 'left')
+            ->join('users guard', 'guard.id=visitors.created_by', 'left')
+            ->where('visitors.visitor_type', 'OWNER_MEETING')
+            ->where('visitors.status', 'PENDING')
+            ->where('visitors.owner_id', $uid)
+            ->orderBy('visitors.id', 'ASC')->findAll(10);
+        return $this->response->setJSON(['ok' => true, 'items' => $rows]);
+    }
+
+    public function visitorApprove(int $id)
+    {
+        $auth = new AuthService();
+        if (!$auth->can('visitor.approve')) {
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'Approval access denied.']);
+        }
+        $visitor = $this->visitors->find($id);
+        $uid = (int)service('session')->get('user_id');
+        if (!$visitor || $visitor['visitor_type'] !== 'OWNER_MEETING' || $visitor['status'] !== 'PENDING' || (int)$visitor['owner_id'] !== $uid) {
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'Visitor request not found.']);
+        }
+        $now = date('Y-m-d H:i:s');
+        $this->visitors->update($id, ['status' => 'APPROVED', 'approved_by' => $uid, 'approved_at' => $now, 'updated_at' => $now]);
+        (new AuditService())->record('VISITOR_APPROVED', 'security', $id, 'Owner approved visitor entry.');
+        return $this->response->setJSON(['ok' => true, 'message' => 'Visitor approved. Security can allow entry.']);
+    }
+
+    public function visitorReject(int $id)
+    {
+        $auth = new AuthService();
+        if (!$auth->can('visitor.approve')) {
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'Approval access denied.']);
+        }
+        $visitor = $this->visitors->find($id);
+        $uid = (int)service('session')->get('user_id');
+        if (!$visitor || $visitor['visitor_type'] !== 'OWNER_MEETING' || $visitor['status'] !== 'PENDING' || (int)$visitor['owner_id'] !== $uid) {
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'Visitor request not found.']);
+        }
+        $reason = trim((string)$this->request->getPost('reason'));
+        $now = date('Y-m-d H:i:s');
+        $this->visitors->update($id, ['status' => 'REJECTED', 'approved_by' => $uid, 'approved_at' => $now, 'rejected_reason' => $reason ?: null, 'updated_at' => $now]);
+        (new AuditService())->record('VISITOR_REJECTED', 'security', $id, 'Owner rejected visitor entry.');
+        return $this->response->setJSON(['ok' => true, 'message' => 'Visitor rejected.']);
+    }
+
+    protected function visitorRows(int $limit = 100): array
+    {
+        return $this->visitors->select('visitors.*, owner.name AS owner_name, guard.name AS guard_name')
+            ->join('users owner', 'owner.id=visitors.owner_id', 'left')
+            ->join('users guard', 'guard.id=visitors.created_by', 'left')
+            ->orderBy('visitors.id', 'DESC')->findAll($limit);
     }
 
     protected function runOcr(string $path, string $mime): array

@@ -70,7 +70,7 @@ class Users extends BaseController
             'username' => 'required|min_length[3]|max_length[100]|is_unique[users.username]',
             'email' => 'permit_empty|valid_email|max_length[190]',
             'password' => 'required|min_length[6]|max_length[72]',
-            'role' => 'required|in_list[user,security,admin]',
+            'role' => 'required|in_list[user,security,owner,admin]',
         ];
 
         if (!$this->validate($rules)) {
@@ -92,7 +92,7 @@ class Users extends BaseController
         $permissions = is_array($permissions) ? $permissions : [];
         $permissions = array_values(array_intersect($permissions, array_keys($this->permissionList())));
         if ((string)$this->request->getPost('role') === 'security' && !$permissions) {
-            $permissions = ['security.scan', 'security.manual_entry', 'security.history'];
+            $permissions = ['security.scan', 'security.manual_entry', 'security.history', 'visitor.manage'];
         }
         $this->permissions->replaceForUser((int) $userId, $permissions);
 
@@ -132,7 +132,7 @@ class Users extends BaseController
             'username' => 'required|min_length[3]|max_length[100]',
             'email' => 'permit_empty|valid_email|max_length[190]',
             'password' => 'permit_empty|min_length[6]|max_length[72]',
-            'role' => 'required|in_list[user,security,admin]',
+            'role' => 'required|in_list[user,security,owner,admin]',
         ];
 
         if (!$this->validate($rules)) {
@@ -217,6 +217,8 @@ class Users extends BaseController
             'security.scan' => 'Security Scan',
             'security.manual_entry' => 'Security Manual Entry',
             'security.history' => 'Security History',
+            'visitor.manage' => 'Visitor Register / Gate Entry',
+            'visitor.approve' => 'Approve Owner Visitors',
             'reports.stock' => 'Stock Reports',
             'reports.in' => 'IN Reports',
             'reports.out' => 'OUT Reports',

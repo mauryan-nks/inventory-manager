@@ -56,6 +56,7 @@ $canReports = $authNav->can('reports.stock') || $authNav->can('reports.in') || $
     <?php if($canSecurity): ?>
     <div class="nav-label"><?=esc(app_t('Gate desk'))?></div>
     <a class="<?=$active(['security'])?>" href="<?=site_url('security')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 11a7 7 0 0 1 14 0v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/><path d="M8 11V9a4 4 0 0 1 8 0v2"/></svg><?=esc(app_t('Security Desk'))?></a>
+    <?php if($authNav->can('visitor.manage')): ?><a class="<?=$active(['security/visitors'])?>" href="<?=site_url('security/visitors')?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3"/><path d="M5 20a7 7 0 0 1 14 0M17 11a3 3 0 1 1 0-6"/></svg><?=esc(app_t('Visitor Register'))?></a><?php endif; ?>
     <?php endif; ?>
     <?php if($canReports): ?>
     <div class="nav-label"><?=esc(app_t('Insights'))?></div>

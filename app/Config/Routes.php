@@ -54,6 +54,12 @@ $routes->post('security/scan/(:num)/confirm', 'Security::confirm/$1', ['filter' 
 $routes->get('security/manual', 'Security::manual', ['filter' => 'auth:security.manual_entry']);
 $routes->post('security/manual', 'Security::manualStore', ['filter' => 'auth:security.manual_entry']);
 $routes->get('security/history', 'Security::history', ['filter' => 'auth']);
+$routes->get('security/visitors', 'Security::visitors', ['filter' => 'auth:visitor.manage']);
+$routes->post('security/visitors/store', 'Security::visitorStore', ['filter' => 'auth:visitor.manage']);
+$routes->get('security/visitors/pending', 'Security::visitorPending', ['filter' => 'auth:visitor.approve']);
+$routes->post('security/visitors/(:num)/approve', 'Security::visitorApprove/$1', ['filter' => 'auth:visitor.approve']);
+$routes->post('security/visitors/(:num)/reject', 'Security::visitorReject/$1', ['filter' => 'auth:visitor.approve']);
+$routes->get('security/visitors/(:num)/photo', 'Security::visitorPhoto/$1', ['filter' => 'auth']);
 
 $routes->get('reports', 'Reports::index', ['filter' => 'auth']);
 $routes->get('reports/stock', 'Reports::stock', ['filter' => 'auth:reports.stock']);

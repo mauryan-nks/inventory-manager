@@ -22,6 +22,7 @@ class Dashboard extends BaseController
             'canProducts' => $auth->can('products.view'),
             'canUsers' => $auth->can('users.view'),
             'canSecurity' => $auth->can('security.scan') || $auth->can('security.manual_entry') || $auth->can('security.history'),
+            'canVisitorApprove' => $auth->can('visitor.approve'),
         ];
 
         // These models may be added by the next phase. Keep the dashboard

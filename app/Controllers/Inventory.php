@@ -134,7 +134,7 @@ class Inventory extends BaseController
 
     public function detail(int $id)
     {
-        $transaction = (new InventoryTransactionModel())->select('inventory_transactions.*, users.name AS user_name')->join('users','users.id=inventory_transactions.created_by','left')->find($id);
+        $transaction = (new InventoryTransactionModel())->select('inventory_transactions.*, users.name AS user_name, fp.operator_name, fp.machine_name, fp.production_date, fp.item_name AS factory_item_name')->join('users','users.id=inventory_transactions.created_by','left')->join('factory_productions fp','fp.transaction_id=inventory_transactions.id','left')->find($id);
         if (!$transaction) return redirect()->to('/inventory/transactions')->with('error','Transaction not found.');
         $items = (new \App\Models\InventoryTransactionItemModel())->select('inventory_transaction_items.*, products.code, products.name, products.unit, product_variants.variant_name, product_variants.size_value, product_variants.size_unit')->join('products','products.id=inventory_transaction_items.product_id','left')->join('product_variants','product_variants.id=inventory_transaction_items.variant_id','left')->where('transaction_id',$id)->findAll();
         return view('inventory/detail',['title'=>'Transaction '.$transaction['transaction_no'],'transaction'=>$transaction,'items'=>$items,'authNav'=>new AuthService()]);
@@ -179,9 +179,9 @@ class Inventory extends BaseController
         $status = strtoupper(trim((string)$this->request->getGet('status')));
         $from = trim((string)$this->request->getGet('from'));
         $to = trim((string)$this->request->getGet('to'));
-        $builder = $model->select('inventory_transactions.*, users.name AS user_name')->join('users', 'users.id = inventory_transactions.created_by', 'left');
-        if ($q !== '') { $builder->groupStart()->like('transaction_no',$q)->orLike('reference_no',$q)->orLike('party_name',$q)->orLike('users.name',$q)->groupEnd(); }
-        if (in_array($type,['IN','OUT'],true)) $builder->where('inventory_transactions.type',$type);
+        $builder = $model->select('inventory_transactions.*, users.name AS user_name, fp.operator_name, fp.machine_name, fp.production_date, fp.item_name AS factory_item_name')->join('users', 'users.id = inventory_transactions.created_by', 'left')->join('factory_productions fp', 'fp.transaction_id = inventory_transactions.id', 'left');
+        if ($q !== '') { $builder->groupStart()->like('transaction_no',$q)->orLike('reference_no',$q)->orLike('party_name',$q)->orLike('users.name',$q)->orLike('fp.operator_name',$q)->orLike('fp.machine_name',$q)->orLike('fp.item_name',$q)->groupEnd(); }
+        if ($type === 'FACTORY') { $builder->where('fp.transaction_id IS NOT NULL', null, false); } elseif (in_array($type,['IN','OUT'],true)) { $builder->where('inventory_transactions.type',$type)->where('fp.transaction_id IS NULL', null, false); }
         if (in_array($status,['CONFIRMED','VOID'],true)) $builder->where('inventory_transactions.status',$status);
         if ($from !== '') $builder->where('inventory_transactions.created_at >=',$from.' 00:00:00');
         if ($to !== '') $builder->where('inventory_transactions.created_at <=',$to.' 23:59:59');

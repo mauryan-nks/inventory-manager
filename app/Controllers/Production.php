@@ -27,8 +27,13 @@ class Production extends BaseController
         if (!$this->enabled()) return redirect()->to('/dashboard')->with('error','Factory Production is disabled in Settings.');
         if (!(new AuthService())->can('inventory.in')) return redirect()->to('/dashboard')->with('error','You do not have permission to record factory production.');
         $date=trim((string)$this->request->getPost('production_date')) ?: date('Y-m-d');
+        $operatorName=trim((string)$this->request->getPost('operator_name'));
+        $machineName=trim((string)$this->request->getPost('machine_name'));
         $productId=(int)$this->request->getPost('product_id'); $categoryId=(int)$this->request->getPost('category_id'); $quantity=trim((string)$this->request->getPost('quantity'));
+        
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/',$date) || !strtotime($date)) return redirect()->back()->withInput()->with('error','Please enter a valid production date.');
+        if ($operatorName==='' || $machineName==='') return redirect()->back()->withInput()->with('error','Operator name and machine name are required.');
+        if (mb_strlen($operatorName)>150 || mb_strlen($machineName)>150) return redirect()->back()->withInput()->with('error','Operator name and machine name must be 150 characters or less.');
         if ($productId<1 || $categoryId<1 || $quantity==='' || !ctype_digit($quantity) || (int)$quantity<1) return redirect()->back()->withInput()->with('error','Item, category and a whole-number quantity greater than 0 are required.');
         $product=(new ProductModel())->select('products.*, categories.name AS category_name')->join('categories','categories.id=products.category_id','left')->find($productId);
         $category=(new CategoryModel())->where('id',$categoryId)->where('status',1)->first();
@@ -36,8 +41,8 @@ class Production extends BaseController
         try {
             $inventory=new InventoryService();
             $txId=$inventory->createTransaction('IN',[[ 'product_id'=>$productId,'variant_id'=>$this->defaultVariant($productId),'quantity'=>(int)$quantity ]],(int)session()->get('user_id'),['reference_no'=>'FACTORY-'.date('YmdHis'),'party_name'=>'Factory Production','remarks'=>'Factory production dated '.$date]);
-            (new FactoryProductionModel())->insert(['production_date'=>$date,'product_id'=>$productId,'category_id'=>$categoryId,'item_name'=>$product['name'],'quantity'=>(int)$quantity,'transaction_id'=>$txId,'created_by'=>(int)session()->get('user_id'),'created_at'=>date('Y-m-d H:i:s'),'updated_at'=>date('Y-m-d H:i:s')]);
-            (new AuditService())->record('CREATE_FACTORY_PRODUCTION','factory_productions',null,'Factory production recorded.',null,['product_id'=>$productId,'quantity'=>(int)$quantity,'production_date'=>$date]);
+            (new FactoryProductionModel())->insert(['production_date'=>$date,'product_id'=>$productId,'category_id'=>$categoryId,'item_name'=>$product['name'],'operator_name'=>$operatorName,'machine_name'=>$machineName,'quantity'=>(int)$quantity,'transaction_id'=>$txId,'created_by'=>(int)session()->get('user_id'),'created_at'=>date('Y-m-d H:i:s'),'updated_at'=>date('Y-m-d H:i:s')]);
+            (new AuditService())->record('CREATE_FACTORY_PRODUCTION','factory_productions',null,'Factory production recorded.',null,['product_id'=>$productId,'quantity'=>(int)$quantity,'production_date'=>$date,'operator_name'=>$operatorName,'machine_name'=>$machineName]);
             return redirect()->to('/production')->with('success','Factory production recorded and added to stock.');
         } catch (RuntimeException $e) { return redirect()->back()->withInput()->with('error',$e->getMessage()); }
     }
